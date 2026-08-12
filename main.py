@@ -5,7 +5,7 @@ from datetime import datetime, date
 from typing import Optional, List
 
 from fastapi import FastAPI, Depends, HTTPException, Query, Request, status
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
@@ -122,6 +122,11 @@ def health_check():
 @app.get("/")
 def root():
     return {"status": "Online"}
+
+# Frontend Serve Karne Ka Naya Route
+@app.get("/dashboard")
+def serve_dashboard():
+    return FileResponse("index.html")
 
 @app.post("/auth/login", response_model=TokenSchema)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
