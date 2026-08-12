@@ -38,41 +38,10 @@ app.add_middleware(
 def setup_database_and_admin():
     db = SessionLocal()
     try:
-        # Safe schema migrations for preserving existing data 
-        try:
-            db.execute(text("ALTER TABLE patients ADD COLUMN phone_number VARCHAR(20)"))
-            db.commit()
-        except Exception:
-            db.rollback() 
-            
-        try:
-            db.execute(text("ALTER TABLE visits ADD COLUMN doctor_id INTEGER REFERENCES doctors(id)"))
-            db.commit()
-        except Exception:
-            db.rollback() 
-
-        try:
-            db.execute(text("ALTER TABLE clinics ADD COLUMN is_online BOOLEAN DEFAULT TRUE NOT NULL"))
-            db.commit()
-        except Exception:
-            db.rollback()
-
-        try:
-            db.execute(text("ALTER TABLE doctors ADD COLUMN is_online BOOLEAN DEFAULT TRUE NOT NULL"))
-            db.commit()
-        except Exception:
-            db.rollback()
-
-        # Load environment variables safely
         admin_email = os.getenv("ADMIN_USERNAME", "admin")
         admin_password = os.getenv("ADMIN_PASSWORD", "ChangeThisAdminPassword123!")
         
-        # Safe Debugging
-        print("\n--- AUTHENTICATION CONFIGURATION DEBUG ---")
-        print(f"ADMIN_USERNAME loaded: {admin_email}")
-        print(f"ADMIN_PASSWORD configured: {'YES' if admin_password else 'NO'}")
-        print("------------------------------------------\n")
-        
+        # Check if clinic exists, else create default one
         clinic = db.query(Clinic).first()
         if not clinic:
             clinic = Clinic(
@@ -83,14 +52,16 @@ def setup_database_and_admin():
             db.add(clinic)
             db.commit()
             db.refresh(clinic)
-            
-        # 1. Main Admin Account Setup (Password Protected)
+        
+        clinic_id = clinic.id
+
+        # Setup Admin User securely
         admin = db.query(Doctor).filter(Doctor.email == admin_email).first()
         admin_hashed_pw = get_password_hash(admin_password)
         
         if not admin:
             admin = Doctor(
-                clinic_id=clinic.id,
+                clinic_id=clinic_id,
                 name="Admin Manager",
                 email=admin_email,
                 password_hash=admin_hashed_pw,
@@ -99,18 +70,12 @@ def setup_database_and_admin():
             )
             db.add(admin)
             db.commit()
-            db.refresh(admin)
         else:
-            try:
-                if not admin.password_hash or not verify_password(admin_password, admin.password_hash):
-                    admin.password_hash = admin_hashed_pw
-                    db.commit()
-                    db.refresh(admin)
-            except Exception:
+            if not admin.password_hash or not verify_password(admin_password, admin.password_hash):
                 admin.password_hash = admin_hashed_pw
                 db.commit()
 
-        # 2. Staff Doctors Setup (Rahul, Anjali, Ramesh - No direct login password needed)
+        # Ensure staff doctors exist (Rahul, Anjali, Ramesh - No password required)
         staff_doctors = [
             ("Rahul", "dr.rahul@clinic.com"),
             ("Anjali", "dr.anjali@clinic.com"),
@@ -120,19 +85,15 @@ def setup_database_and_admin():
         for doc_name, doc_email in staff_doctors:
             doc_exists = db.query(Doctor).filter(Doctor.email == doc_email).first()
             if not doc_exists:
-                staff_doc = Doctor(
-                    clinic_id=clinic.id,
+                new_doc = Doctor(
+                    clinic_id=clinic_id,
                     name=doc_name,
                     email=doc_email,
-                    password_hash="",  # No login password required for staff doctors
+                    password_hash="",
                     is_active=True,
                     is_online=True
                 )
-                db.add(staff_doc)
-                db.commit()
-
-        # Migrate existing backward-compatible visits to the default admin doctor
-        db.execute(text(f"UPDATE visits SET doctor_id = {admin.id} WHERE doctor_id IS NULL"))
+                db.add(new_doc)
         db.commit()
         
     except Exception as e:
