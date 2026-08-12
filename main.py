@@ -38,7 +38,7 @@ app.add_middleware(
 def setup_database_and_admin():
     db = SessionLocal()
     try:
-        # Safe schema migration for preserving existing data 
+        # Safe schema migrations for preserving existing data 
         try:
             db.execute(text("ALTER TABLE patients ADD COLUMN phone_number VARCHAR(20)"))
             db.commit()
@@ -84,14 +84,16 @@ def setup_database_and_admin():
             db.commit()
             db.refresh(clinic)
             
+        # 1. Main Admin Account Setup (Password Protected)
         admin = db.query(Doctor).filter(Doctor.email == admin_email).first()
+        admin_hashed_pw = get_password_hash(admin_password)
+        
         if not admin:
-            # Create new admin if they don't exist
             admin = Doctor(
                 clinic_id=clinic.id,
-                name="Admin Doctor",
+                name="Admin Manager",
                 email=admin_email,
-                password_hash=get_password_hash(admin_password),
+                password_hash=admin_hashed_pw,
                 is_active=True,
                 is_online=True
             )
@@ -99,13 +101,36 @@ def setup_database_and_admin():
             db.commit()
             db.refresh(admin)
         else:
-            # CRITICAL FIX: If admin exists but password in .env changed, update the database hash
-            if not verify_password(admin_password, admin.password_hash):
-                admin.password_hash = get_password_hash(admin_password)
+            try:
+                if not admin.password_hash or not verify_password(admin_password, admin.password_hash):
+                    admin.password_hash = admin_hashed_pw
+                    db.commit()
+                    db.refresh(admin)
+            except Exception:
+                admin.password_hash = admin_hashed_pw
                 db.commit()
-                db.refresh(admin)
-                print(f"[INFO] Updated database password hash for {admin_email} to match current .env")
-            
+
+        # 2. Staff Doctors Setup (Rahul, Anjali, Ramesh - No direct login password needed)
+        staff_doctors = [
+            ("Rahul", "dr.rahul@clinic.com"),
+            ("Anjali", "dr.anjali@clinic.com"),
+            ("Ramesh", "dr.ramesh@clinic.com")
+        ]
+        
+        for doc_name, doc_email in staff_doctors:
+            doc_exists = db.query(Doctor).filter(Doctor.email == doc_email).first()
+            if not doc_exists:
+                staff_doc = Doctor(
+                    clinic_id=clinic.id,
+                    name=doc_name,
+                    email=doc_email,
+                    password_hash="",  # No login password required for staff doctors
+                    is_active=True,
+                    is_online=True
+                )
+                db.add(staff_doc)
+                db.commit()
+
         # Migrate existing backward-compatible visits to the default admin doctor
         db.execute(text(f"UPDATE visits SET doctor_id = {admin.id} WHERE doctor_id IS NULL"))
         db.commit()
@@ -123,13 +148,20 @@ def health_check():
 def root():
     return FileResponse("index.html")
 
-# Frontend Serve Karne Ka Naya Route
 @app.get("/dashboard")
 def serve_dashboard():
     return FileResponse("index.html")
 
 @app.post("/auth/login", response_model=TokenSchema)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    # Only Admin login is allowed through credentials
+    admin_email = os.getenv("ADMIN_USERNAME", "admin")
+    if form_data.username != admin_email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only Admin login is allowed. Staff doctors do not require direct login."
+        )
+
     doctor = db.query(Doctor).filter(Doctor.email == form_data.username).first()
     if not doctor or not verify_password(form_data.password, doctor.password_hash):
         raise HTTPException(status_code=400, detail="Invalid username or password")
@@ -221,7 +253,6 @@ def update_clinic_status(payload: StatusUpdateSchema, db: Session = Depends(get_
 @app.get("/doctors", response_model=List[DoctorOutSchema])
 def get_all_doctors(db: Session = Depends(get_db), current_doctor: Doctor = Depends(get_current_doctor)):
     doctors = db.query(Doctor).filter(Doctor.clinic_id == current_doctor.clinic_id, Doctor.is_active == True).all()
-    # Explicitly map the properties to the Pydantic schema
     return [
         DoctorOutSchema(
             id=d.id,
@@ -244,22 +275,18 @@ def update_doctor_status(doctor_id: int, payload: StatusUpdateSchema, db: Sessio
 
 @app.get("/doctor/{doctor_id}/queue")
 def get_specific_doctor_queue(doctor_id: int, db: Session = Depends(get_db), current_doctor: Doctor = Depends(get_current_doctor)):
-    # 1. Verify the requested doctor belongs to the admin's clinic
     target_doctor = db.query(Doctor).filter(Doctor.id == doctor_id, Doctor.clinic_id == current_doctor.clinic_id).first()
     if not target_doctor:
         raise HTTPException(status_code=404, detail="Doctor not found")
 
-    # 2. Fetch today's visits for THIS specific doctor
     today = get_today_ist()
     visits = db.query(Visit).filter(Visit.doctor_id == doctor_id, Visit.visit_date == today).order_by(Visit.token_number.asc()).all()
     
-    # 3. Categorize visits
     current_visit = next((v for v in visits if v.status == VisitStatus.CURRENT), None)
     waiting_visits = [v for v in visits if v.status == VisitStatus.WAITING]
     skipped_visits = [v for v in visits if v.status == VisitStatus.SKIPPED]
     next_patient = waiting_visits[0] if waiting_visits else None
 
-    # 4. Helper function to format the response exactly as the frontend expects
     def format_visit(v):
         if not v:
             return None
@@ -272,7 +299,6 @@ def get_specific_doctor_queue(doctor_id: int, db: Session = Depends(get_db), cur
             "doctor_name": f"Dr. {target_doctor.name}"
         }
 
-    # 5. Return the structured dictionary
     return {
         "current_token": format_visit(current_visit),
         "next_patient": format_visit(next_patient),
@@ -289,7 +315,6 @@ def accept_visit(visit_id: int, db: Session = Depends(get_db), current_doctor: D
     if visit.status not in [VisitStatus.WAITING, VisitStatus.SKIPPED]:
         raise HTTPException(400, detail="Can only accept WAITING or SKIPPED tokens.")
     
-    # Complete any existing current visit for this specific doctor
     today = get_today_ist()
     curr_visit = db.query(Visit).filter(Visit.doctor_id == visit.doctor_id, Visit.visit_date == today, Visit.status == VisitStatus.CURRENT).first()
     if curr_visit:
@@ -329,7 +354,6 @@ def cancel_visit(visit_id: int, db: Session = Depends(get_db), current_doctor: D
 @app.get("/doctor/today", response_model=DashboardSummaryOutSchema)
 def get_today_summary(db: Session = Depends(get_db), current_doctor: Doctor = Depends(get_current_doctor)):
     today = get_today_ist()
-    # We fetch ALL visits for the clinic today to show in the main dashboard summary
     visits = db.query(Visit).filter(Visit.clinic_id == current_doctor.clinic_id, Visit.visit_date == today).order_by(Visit.token_number.asc()).all()
 
     waiting_cnt = sum(1 for v in visits if v.status == VisitStatus.WAITING)
@@ -375,7 +399,6 @@ def add_walkin_patient(payload: ManualPatientAddSchema, db: Session = Depends(ge
         db.refresh(patient)
     
     try:
-        # Use the specific doctor_id passed from the UI
         visit = generate_daily_token(db, clinic_id, payload.doctor_id, patient.id, payload.visit_reason)
         return {"message": "Patient added successfully", "token_number": visit.token_number}
     except ValueError as e:
@@ -432,7 +455,6 @@ def get_patients_summary(query: Optional[str] = None, start_date: Optional[str] 
     if not patient_ids:
         return PatientSummarySchema(total_patients=0, new_patients=0, returning_patients=0, total_visits=0, completed_visits=0, cancelled_visits=0, waiting_visits=0)
 
-    # Note: Summary spans all doctors in the clinic now, not just the single admin.
     vq = db.query(Visit).filter(Visit.clinic_id == current_doctor.clinic_id, Visit.patient_id.in_(patient_ids))
     if s_date: vq = vq.filter(Visit.visit_date >= s_date)
     if e_date: vq = vq.filter(Visit.visit_date <= e_date)
