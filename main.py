@@ -119,9 +119,9 @@ def setup_database_and_admin():
 def health_check():
     return {"status": "healthy"}
 
-@app.get("/")
+@app.get("/", response_class=HTMLResponse)
 def root():
-    return {"status": "Online"}
+    return FileResponse("index.html")
 
 # Frontend Serve Karne Ka Naya Route
 @app.get("/dashboard")
