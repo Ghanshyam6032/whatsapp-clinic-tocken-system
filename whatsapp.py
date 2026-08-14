@@ -36,6 +36,59 @@ def send_whatsapp_message(phone_number_id: str, to: str, text_msg: str, reason_f
     except Exception as e:
         print(f"→ Error sending WhatsApp message to {to}: {str(e)}")
 
+# ==========================================
+# NEW: REMINDER TRIGGER SYSTEM
+# ==========================================
+def trigger_reminders(db: Session, clinic_id: int, doctor_id: int):
+    """Evaluates the queue and safely sends reminders without duplicates."""
+    from main import ReminderSettings  # Local import to prevent circular dependency
+    
+    settings = db.query(ReminderSettings).filter_by(clinic_id=clinic_id).first()
+    if not settings or not settings.enabled:
+        return
+
+    clinic = db.query(Clinic).get(clinic_id)
+    doctor = db.query(Doctor).get(doctor_id)
+    today = get_today_ist()
+
+    # Process all active visits
+    active_visits = db.query(Visit).filter(
+        Visit.clinic_id == clinic_id,
+        Visit.doctor_id == doctor_id,
+        Visit.visit_date == today,
+        Visit.status.in_([VisitStatus.WAITING, VisitStatus.CURRENT])
+    ).order_by(Visit.token_number.asc()).all()
+
+    for visit in active_visits:
+        patient = db.query(Patient).get(visit.patient_id)
+        phone = patient.whatsapp_number or patient.phone_number
+        if not phone:
+            continue
+
+        # 1. Your Turn Reminder
+        if visit.status == VisitStatus.CURRENT and settings.your_turn_enabled and not getattr(visit, 'your_turn_sent', False):
+            msg = f"🟢 Your Turn\n\nIt's your turn now.\n\n🎫 Token: A-{visit.token_number}\n👨‍⚕️ Doctor: Dr. {doctor.name}\n\nPlease proceed to the consultation area."
+            send_whatsapp_message(clinic.whatsapp_phone_number_id, phone, msg, "Your Turn Reminder", "SYS", "SYSTEM")
+            visit.your_turn_sent = True
+            db.commit()
+
+        # 2. Near Turn Reminder
+        if visit.status == VisitStatus.WAITING and settings.near_turn_enabled and not getattr(visit, 'near_turn_sent', False):
+            # Calculate exactly how many WAITING patients are ahead
+            patients_ahead = db.query(Visit).filter(
+                Visit.clinic_id == clinic_id,
+                Visit.doctor_id == doctor_id,
+                Visit.visit_date == today,
+                Visit.status == VisitStatus.WAITING,
+                Visit.token_number < visit.token_number
+            ).count()
+
+            if patients_ahead == settings.near_turn_patients:
+                msg = f"🔔 Token Reminder\n\nYour turn is approaching.\n\n🎫 Token: A-{visit.token_number}\n👨‍⚕️ Doctor: Dr. {doctor.name}\n👥 Patients ahead: {patients_ahead}\n\nPlease be ready."
+                send_whatsapp_message(clinic.whatsapp_phone_number_id, phone, msg, "Near Turn Reminder", "SYS", "SYSTEM")
+                visit.near_turn_sent = True
+                db.commit()
+
 def get_or_create_state(db: Session, clinic_id: int, whatsapp_number: str) -> ConversationState:
     state_rec = db.query(ConversationState).filter(
         ConversationState.clinic_id == clinic_id,
@@ -110,6 +163,10 @@ def generate_daily_token(db: Session, clinic_id: int, doctor_id: int, patient_id
             db.add(new_visit)
             db.commit()
             db.refresh(new_visit)
+            
+            # TRIGGER REMINDERS AFTER A NEW TOKEN IS GENERATED
+            trigger_reminders(db, clinic_id, doctor_id)
+            
             return new_visit
         except IntegrityError:
             db.rollback()
@@ -143,14 +200,12 @@ def process_whatsapp_message(db: Session, phone_number_id: str, sender_phone: st
                 reply("🔴 Clinic is currently offline.\n\nSorry, the clinic is not accepting new tokens right now.\n\nPlease try again later.", "Offline", "MAIN_MENU")
                 return
 
-            # --- ONLY MODIFICATION: Admin Separation Logic ---
             admin_email = os.getenv("ADMIN_USERNAME", "admin")
             doctors = db.query(Doctor).filter(
                 Doctor.clinic_id == clinic.id, 
                 Doctor.is_active == True,
-                Doctor.email != admin_email # Hide admin from selection
+                Doctor.email != admin_email
             ).order_by(Doctor.id.asc()).all()
-            # -----------------------------------------------
 
             if not doctors:
                 reply("Sorry, no doctors are currently available.", "No Doctors", "MAIN_MENU")
@@ -189,10 +244,10 @@ def process_whatsapp_message(db: Session, phone_number_id: str, sender_phone: st
             for visit in visits:
                 doc = db.query(Doctor).get(visit.doctor_id)
                 curr_visit = db.query(Visit).filter(Visit.doctor_id == doc.id, Visit.visit_date == today, Visit.status == VisitStatus.CURRENT).first()
-                c_num = f"#{curr_visit.token_number}" if curr_visit else "Not Started"
+                c_num = f"A-{curr_visit.token_number}" if curr_visit else "Not Started"
                 ahead = db.query(Visit).filter(Visit.doctor_id == doc.id, Visit.visit_date == today, Visit.status == VisitStatus.WAITING, Visit.token_number < visit.token_number).count()
                 
-                out_msg += f"🎫 Your Token: #{visit.token_number}\n\n👨‍⚕️ Doctor: Dr. {doc.name}\n\n👨‍⚕️ Current Token: {c_num}\n\n"
+                out_msg += f"🎫 Your Token: A-{visit.token_number}\n\n👨‍⚕️ Doctor: Dr. {doc.name}\n\n👨‍⚕️ Current Token: {c_num}\n\n"
                 
                 if visit.status == VisitStatus.CANCELLED:
                     out_msg += "❌ Your token has been cancelled.\n\n"
@@ -225,13 +280,13 @@ def process_whatsapp_message(db: Session, phone_number_id: str, sender_phone: st
                 flag_modified(state_rec, "temporary_data")
                 state_rec.state = "CONFIRM_CANCEL"
                 db.commit()
-                reply(f"🎫 Your Token: #{visit.token_number}\n👨‍⚕️ Doctor: Dr. {doc.name}\n\nAre you sure you want to cancel?\n\n✅ 1️⃣ Yes, Cancel Token\n↩️ 2️⃣ No, Keep Token", "Confirm Cancel", "CONFIRM_CANCEL")
+                reply(f"🎫 Your Token: A-{visit.token_number}\n👨‍⚕️ Doctor: Dr. {doc.name}\n\nAre you sure you want to cancel?\n\n✅ 1️⃣ Yes, Cancel Token\n↩️ 2️⃣ No, Keep Token", "Confirm Cancel", "CONFIRM_CANCEL")
             else:
                 msg = "You have multiple active tokens. Please select which one to cancel:\n\n"
                 v_map = {}
                 for idx, v in enumerate(visits, 1):
                     doc = db.query(Doctor).get(v.doctor_id)
-                    msg += f"{idx}️⃣ Dr. {doc.name} (Token #{v.token_number})\n"
+                    msg += f"{idx}️⃣ Dr. {doc.name} (Token A-{v.token_number})\n"
                     v_map[str(idx)] = v.id
                 state_rec.temporary_data = {"cancel_map": v_map}
                 flag_modified(state_rec, "temporary_data")
@@ -257,7 +312,7 @@ def process_whatsapp_message(db: Session, phone_number_id: str, sender_phone: st
             today = get_today_ist()
             active_visit = next((v for v in visits if v.visit_date == today and v.doctor_id == doctor_id and v.status in [VisitStatus.WAITING, VisitStatus.CURRENT]), None)
             if active_visit:
-                reply(f"⚠️ You already have an active token for this doctor today.\n\n🎫 Your Token: #{active_visit.token_number}", "Active Block", "MAIN_MENU")
+                reply(f"⚠️ You already have an active token for this doctor today.\n\n🎫 Your Token: A-{active_visit.token_number}", "Active Block", "MAIN_MENU")
                 reset_state(db, clinic.id, sender_phone)
                 return
 
@@ -377,7 +432,7 @@ def process_whatsapp_message(db: Session, phone_number_id: str, sender_phone: st
         state_rec.temporary_data = temp_data 
         flag_modified(state_rec, "temporary_data") 
         state_rec.state = "WAITING_FOR_REASON"
-        db.commit()
+        db.commit()                             
         reply("🩺 What is the reason for today's visit?", "Ask Reason", "WAITING_FOR_REASON")
 
     elif state == "WAITING_FOR_REASON":
@@ -420,10 +475,10 @@ def process_whatsapp_message(db: Session, phone_number_id: str, sender_phone: st
             visit = generate_daily_token(db, clinic.id, doctor_id, patient_id, msg_text)
             today = get_today_ist()
             current_visit = db.query(Visit).filter(Visit.doctor_id == doctor_id, Visit.visit_date == today, Visit.status == VisitStatus.CURRENT).first()
-            c_num = f"#{current_visit.token_number}" if current_visit else "Not Started"
+            c_num = f"A-{current_visit.token_number}" if current_visit else "Not Started"
             ahead = db.query(Visit).filter(Visit.doctor_id == doctor_id, Visit.visit_date == today, Visit.status == VisitStatus.WAITING, Visit.token_number < visit.token_number).count()
             
-            msg = f"✅ TOKEN GENERATED SUCCESSFULLY\n\n👨‍⚕️ Doctor: Dr. {doc.name}\n\n🎫 Your Token: #{visit.token_number}\n\n👤 Patient: {patient.name}\n🎂 Age: {patient.age}\n🩺 Reason: {visit.visit_reason}\n\n👨‍⚕️ Current Token: {c_num}\n👥 Patients Before You: {ahead}\n\n🙏 Thank you for using {clinic.name}."
+            msg = f"✅ TOKEN GENERATED SUCCESSFULLY\n\n👨‍⚕️ Doctor: Dr. {doc.name}\n\n🎫 Your Token: A-{visit.token_number}\n\n👤 Patient: {patient.name}\n🎂 Age: {patient.age}\n🩺 Reason: {visit.visit_reason}\n\n👨‍⚕️ Current Token: {c_num}\n👥 Patients Before You: {ahead}\n\n🙏 Thank you for using {clinic.name}."
             reply(msg, "Token Generated", "MAIN_MENU")
             reset_state(db, clinic.id, sender_phone)
             
@@ -437,7 +492,7 @@ def process_whatsapp_message(db: Session, phone_number_id: str, sender_phone: st
                 reply(f"🔴 Clinic Closed\n\n{clinic.name} is closed today.", "Closed", "MAIN_MENU")
             elif err.startswith("ACTIVE_TOKEN"):
                 tok = err.split(":")[1]
-                reply(f"⚠️ You already have an active token for this doctor today.\n\n🎫 Your Token: #{tok}", "Active Block", "MAIN_MENU")
+                reply(f"⚠️ You already have an active token for this doctor today.\n\n🎫 Your Token: A-{tok}", "Active Block", "MAIN_MENU")
             reset_state(db, clinic.id, sender_phone)
         except Exception:
             reply("⚠️ Failed to generate token due to high traffic. Please type 1 to try again.", "Token Fail", "MAIN_MENU")
@@ -457,7 +512,7 @@ def process_whatsapp_message(db: Session, phone_number_id: str, sender_phone: st
         flag_modified(state_rec, "temporary_data")
         state_rec.state = "CONFIRM_CANCEL"
         db.commit()
-        reply(f"🎫 Your Token: #{visit.token_number}\n👨‍⚕️ Doctor: Dr. {doc.name}\n\nAre you sure you want to cancel?\n\n✅ 1️⃣ Yes, Cancel Token\n↩️ 2️⃣ No, Keep Token", "Confirm Cancel", "CONFIRM_CANCEL")
+        reply(f"🎫 Your Token: A-{visit.token_number}\n👨‍⚕️ Doctor: Dr. {doc.name}\n\nAre you sure you want to cancel?\n\n✅ 1️⃣ Yes, Cancel Token\n↩️ 2️⃣ No, Keep Token", "Confirm Cancel", "CONFIRM_CANCEL")
 
     elif state == "CONFIRM_CANCEL":
         if msg_text == "1":
