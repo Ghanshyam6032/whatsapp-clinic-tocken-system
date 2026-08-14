@@ -3,592 +3,762 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Clinic Admin Dashboard</title>
-    <!-- Tailwind CSS for Styling -->
+    <title>Clinic Admin & Queue Management</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- SweetAlert2 for Notifications -->
+    <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <!-- FontAwesome for Icons -->
+    <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         .hidden { display: none !important; }
-        .spinner { border: 4px solid rgba(0,0,0,0.1); width: 36px; height: 36px; border-radius: 50%; border-left-color: #3b82f6; animation: spin 1s linear infinite; }
+        .spinner { border: 4px solid rgba(0,0,0,0.1); width: 24px; height: 24px; border-radius: 50%; border-left-color: #ffffff; animation: spin 1s linear infinite; display: inline-block; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        /* Smooth transitions for modals */
+        .modal-enter { opacity: 0; transform: scale(0.95); }
+        .modal-enter-active { opacity: 1; transform: scale(1); transition: all 0.2s ease-out; }
     </style>
 </head>
-<body class="bg-gray-100 font-sans text-gray-800">
+<body class="bg-gray-50 font-sans text-gray-800 antialiased overflow-hidden h-screen flex flex-col">
 
+    <!-- ========================================== -->
     <!-- LOGIN SCREEN -->
-    <div id="login-screen" class="min-h-screen flex items-center justify-center bg-blue-50">
-        <div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-md">
+    <!-- ========================================== -->
+    <div id="login-screen" class="absolute inset-0 z-50 flex items-center justify-center bg-slate-900 bg-opacity-95">
+        <div class="bg-white p-10 rounded-2xl shadow-2xl w-full max-w-md transform transition-all">
             <div class="text-center mb-8">
-                <i class="fa-solid fa-hospital text-5xl text-blue-600 mb-3"></i>
-                <h1 class="text-2xl font-bold text-gray-800">System Admin Login</h1>
-                <p class="text-gray-500 text-sm mt-2">Clinic Management Portal</p>
+                <div class="bg-blue-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fa-solid fa-hospital-user text-4xl text-blue-600"></i>
+                </div>
+                <h1 class="text-3xl font-extrabold text-gray-900">Clinic Portal</h1>
+                <p class="text-gray-500 text-sm mt-2">Secure System Administration</p>
             </div>
-            <form id="login-form" class="space-y-5">
+            <form id="login-form" class="space-y-6">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Username / Email</label>
-                    <input type="text" id="username" class="w-full px-4 py-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500 outline-none" required placeholder="admin">
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Username / Email</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-user absolute left-4 top-3.5 text-gray-400"></i>
+                        <input type="text" id="username" class="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" required placeholder="admin">
+                    </div>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                    <input type="password" id="password" class="w-full px-4 py-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500 outline-none" required placeholder="••••••••">
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Password</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-lock absolute left-4 top-3.5 text-gray-400"></i>
+                        <input type="password" id="password" class="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" required placeholder="••••••••">
+                    </div>
                 </div>
-                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition duration-200">
-                    Secure Login
+                <button type="submit" id="login-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl shadow-lg transition duration-200 flex items-center justify-center">
+                    <span>Secure Login</span>
                 </button>
             </form>
         </div>
     </div>
 
-    <!-- MAIN DASHBOARD -->
-    <div id="main-dashboard" class="hidden min-h-screen flex flex-col md:flex-row">
+    <!-- ========================================== -->
+    <!-- MAIN APPLICATION LAYOUT -->
+    <!-- ========================================== -->
+    <div id="main-dashboard" class="hidden flex h-full w-full">
         
-        <!-- Sidebar -->
-        <aside class="w-full md:w-64 bg-slate-800 text-white flex flex-col shadow-xl z-10 hidden md:flex">
-            <div class="p-6 text-center border-b border-slate-700">
-                <i class="fa-solid fa-user-shield text-4xl mb-2 text-blue-400"></i>
-                <h2 class="text-xl font-bold" id="sidebar-admin-name">Admin Portal</h2>
-                <span class="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded-full mt-2 inline-block"><i class="fa-solid fa-circle text-[10px]"></i> System Controller</span>
+        <!-- SIDEBAR -->
+        <aside class="w-64 bg-slate-800 text-white flex flex-col shadow-2xl z-20 flex-shrink-0 transition-all duration-300" id="sidebar">
+            <div class="p-6 flex items-center gap-3 border-b border-slate-700">
+                <i class="fa-solid fa-kit-medical text-3xl text-blue-400"></i>
+                <div>
+                    <h2 class="text-xl font-bold tracking-wide">CareSync</h2>
+                    <p class="text-xs text-slate-400">Admin Dashboard</p>
+                </div>
             </div>
-            <nav class="flex-1 p-4 space-y-2">
-                <button onclick="showSection('overview')" class="w-full flex items-center gap-3 px-4 py-3 bg-blue-600 rounded-lg text-left transition hover:bg-blue-500" id="nav-overview">
-                    <i class="fa-solid fa-chart-line w-5"></i> Overview
+            
+            <nav class="flex-1 py-6 px-4 space-y-2 overflow-y-auto">
+                <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4 px-2">Main Menu</p>
+                
+                <button onclick="switchTab('dashboard')" id="tab-dashboard" class="w-full flex items-center gap-4 px-4 py-3 bg-blue-600 text-white rounded-xl shadow transition">
+                    <i class="fa-solid fa-chart-pie w-5 text-center"></i>
+                    <span class="font-medium">Overview</span>
                 </button>
+                
+                <button onclick="switchTab('patients')" id="tab-patients" class="w-full flex items-center gap-4 px-4 py-3 text-slate-300 hover:bg-slate-700 rounded-xl transition">
+                    <i class="fa-solid fa-users w-5 text-center"></i>
+                    <span class="font-medium">Patient Directory</span>
+                </button>
+
+                <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mt-8 mb-4 px-2">System Controls</p>
+                
+                <div class="px-2">
+                    <label class="flex items-center cursor-pointer justify-between bg-slate-700 px-4 py-3 rounded-xl hover:bg-slate-600 transition">
+                        <span class="text-sm font-medium text-slate-200 flex items-center gap-2"><i class="fa-solid fa-power-off text-green-400"></i> Clinic Online</span>
+                        <div class="relative">
+                            <input type="checkbox" id="clinic-status-toggle" class="sr-only" onchange="toggleClinicStatus(this)" checked>
+                            <div class="block bg-slate-500 w-10 h-6 rounded-full"></div>
+                            <div class="dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition transform translate-x-4 bg-green-500"></div>
+                        </div>
+                    </label>
+                </div>
             </nav>
+
             <div class="p-4 border-t border-slate-700">
-                <button onclick="logout()" class="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-600/20 text-red-400 rounded-lg hover:bg-red-600 hover:text-white transition">
-                    <i class="fa-solid fa-sign-out-alt"></i> Logout
+                <div class="flex items-center gap-3 mb-4 px-2">
+                    <div class="w-10 h-10 rounded-full bg-slate-600 flex items-center justify-center text-lg font-bold border-2 border-slate-500">
+                        A
+                    </div>
+                    <div>
+                        <p class="text-sm font-bold">System Admin</p>
+                        <p class="text-xs text-green-400">● Online</p>
+                    </div>
+                </div>
+                <button onclick="logout()" class="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white rounded-lg transition font-medium">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i> Logout
                 </button>
             </div>
         </aside>
 
-        <!-- Main Content -->
-        <main class="flex-1 overflow-y-auto">
+        <!-- MAIN CONTENT AREA -->
+        <main class="flex-1 flex flex-col min-w-0 bg-slate-50 relative h-full">
             
-            <!-- Mobile Header -->
-            <header class="md:hidden bg-slate-800 text-white p-4 flex justify-between items-center shadow-md">
-                <div class="font-bold text-lg"><i class="fa-solid fa-hospital mr-2"></i> Admin Portal</div>
-                <button onclick="logout()" class="text-red-400"><i class="fa-solid fa-sign-out-alt"></i></button>
+            <!-- TOP NAVBAR -->
+            <header class="bg-white border-b border-gray-200 py-4 px-6 flex justify-between items-center shadow-sm z-10 flex-shrink-0">
+                <div class="flex items-center gap-4">
+                    <button class="md:hidden text-gray-500 hover:text-gray-700 text-xl"><i class="fa-solid fa-bars"></i></button>
+                    <h2 id="topbar-title" class="text-2xl font-bold text-gray-800">Overview</h2>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div id="live-clock" class="hidden sm:block text-sm font-semibold text-gray-500 bg-gray-100 px-4 py-2 rounded-full border border-gray-200">
+                        <i class="fa-regular fa-clock mr-1"></i> <span id="time-display">00:00 AM</span>
+                    </div>
+                    <button onclick="loadDashboardData()" class="text-blue-600 bg-blue-50 w-10 h-10 rounded-full hover:bg-blue-100 transition flex items-center justify-center shadow-sm">
+                        <i class="fa-solid fa-rotate-right"></i>
+                    </button>
+                </div>
             </header>
 
-            <div class="p-4 md:p-8">
-                
-                <!-- OVERVIEW SECTION -->
-                <div id="section-overview" class="space-y-6">
+            <!-- SCROLLABLE CONTENT -->
+            <div class="flex-1 overflow-y-auto p-4 md:p-8">
+
+                <!-- ================================== -->
+                <!-- VIEW 1: DASHBOARD OVERVIEW -->
+                <!-- ================================== -->
+                <div id="view-dashboard" class="space-y-8 fade-in block">
                     
-                    <!-- Top Stats -->
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center items-center text-center">
-                            <span class="text-gray-500 text-sm font-semibold">Total Visits Today</span>
-                            <span class="text-3xl font-bold text-blue-600 mt-1" id="stat-total">0</span>
+                    <!-- KPI Cards -->
+                    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+                        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
+                            <div class="w-14 h-14 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-2xl"><i class="fa-solid fa-ticket"></i></div>
+                            <div>
+                                <p class="text-sm font-semibold text-gray-500">Total Tokens</p>
+                                <p class="text-3xl font-black text-gray-800" id="kpi-total">0</p>
+                            </div>
                         </div>
-                        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center items-center text-center">
-                            <span class="text-gray-500 text-sm font-semibold">Currently Waiting</span>
-                            <span class="text-3xl font-bold text-orange-500 mt-1" id="stat-waiting">0</span>
+                        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
+                            <div class="w-14 h-14 rounded-full bg-orange-50 text-orange-500 flex items-center justify-center text-2xl"><i class="fa-solid fa-hourglass-half"></i></div>
+                            <div>
+                                <p class="text-sm font-semibold text-gray-500">Waiting</p>
+                                <p class="text-3xl font-black text-gray-800" id="kpi-waiting">0</p>
+                            </div>
                         </div>
-                        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center items-center text-center">
-                            <span class="text-gray-500 text-sm font-semibold">Completed</span>
-                            <span class="text-3xl font-bold text-green-500 mt-1" id="stat-completed">0</span>
+                        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
+                            <div class="w-14 h-14 rounded-full bg-green-50 text-green-600 flex items-center justify-center text-2xl"><i class="fa-solid fa-check-double"></i></div>
+                            <div>
+                                <p class="text-sm font-semibold text-gray-500">Completed</p>
+                                <p class="text-3xl font-black text-gray-800" id="kpi-completed">0</p>
+                            </div>
                         </div>
-                        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center items-center text-center">
-                            <span class="text-gray-500 text-sm font-semibold">Cancelled</span>
-                            <span class="text-3xl font-bold text-red-500 mt-1" id="stat-cancelled">0</span>
-                        </div>
-                    </div>
-
-                    <hr class="border-gray-200">
-
-                    <!-- Actions & Doctor List Header -->
-                    <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
-                        <h2 class="text-xl font-bold text-gray-800">Active Doctors & Queues</h2>
-                        <div class="flex gap-2">
-                            <button onclick="openAddDoctorModal()" class="bg-indigo-600 text-white px-4 py-2.5 rounded-lg shadow font-medium hover:bg-indigo-700 transition flex items-center gap-2">
-                                <i class="fa-solid fa-user-doctor"></i> Add Doctor
-                            </button>
-                            <button onclick="openWalkinModal()" class="bg-blue-600 text-white px-4 py-2.5 rounded-lg shadow font-medium hover:bg-blue-700 transition flex items-center gap-2">
-                                <i class="fa-solid fa-plus"></i> Walk-in Token
-                            </button>
+                        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
+                            <div class="w-14 h-14 rounded-full bg-red-50 text-red-500 flex items-center justify-center text-2xl"><i class="fa-solid fa-xmark"></i></div>
+                            <div>
+                                <p class="text-sm font-semibold text-gray-500">Cancelled</p>
+                                <p class="text-3xl font-black text-gray-800" id="kpi-cancelled">0</p>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Active Doctors Grid -->
-                    <div id="doctors-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        <!-- Loaded dynamically via JS -->
+                    <!-- Doctors & Actions -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                        <div class="flex flex-col md:flex-row justify-between items-center gap-4 mb-6 pb-4 border-b">
+                            <div>
+                                <h3 class="text-xl font-bold text-gray-800">Active Doctors Setup</h3>
+                                <p class="text-sm text-gray-500 mt-1">Manage doctor availability and queues</p>
+                            </div>
+                            <div class="flex gap-3 w-full md:w-auto">
+                                <button onclick="openModal('add-doctor-modal')" class="flex-1 md:flex-none bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 px-4 py-2.5 rounded-xl font-bold transition flex items-center justify-center gap-2">
+                                    <i class="fa-solid fa-user-doctor"></i> Add Doctor
+                                </button>
+                                <button onclick="openModal('walkin-modal')" class="flex-1 md:flex-none bg-blue-600 text-white hover:bg-blue-700 px-5 py-2.5 rounded-xl font-bold shadow-md transition flex items-center justify-center gap-2">
+                                    <i class="fa-solid fa-plus"></i> Walk-in Token
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Doctors Grid -->
+                        <div id="doctors-list-container" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                            <!-- Populated via JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ================================== -->
+                <!-- VIEW 2: SINGLE DOCTOR QUEUE -->
+                <!-- ================================== -->
+                <div id="view-queue" class="hidden h-full flex flex-col fade-in">
+                    <div class="flex items-center justify-between bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6">
+                        <button onclick="closeQueueView()" class="text-gray-500 hover:text-blue-600 font-semibold px-3 py-2 rounded-lg hover:bg-blue-50 transition flex items-center gap-2">
+                            <i class="fa-solid fa-arrow-left"></i> Back to Dashboard
+                        </button>
+                        <h2 id="queue-doc-name" class="text-xl font-bold text-gray-800">Dr. Name Queue</h2>
+                        <button onclick="advanceQueue()" class="bg-green-500 hover:bg-green-600 text-white px-5 py-2 rounded-lg font-bold shadow transition flex items-center gap-2">
+                            <i class="fa-solid fa-forward-step"></i> Next Patient
+                        </button>
                     </div>
 
-                    <!-- Single Doctor Queue Management View -->
-                    <div id="queue-manager" class="hidden bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                        <div class="bg-slate-50 border-b p-4 flex justify-between items-center">
-                            <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2">
-                                <button onclick="closeQueueManager()" class="text-gray-400 hover:text-gray-800 mr-2"><i class="fa-solid fa-arrow-left"></i> Back</button>
-                                <span id="qm-doc-name">Queue Management</span>
-                            </h3>
-                            <button onclick="advanceSpecificQueue()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow text-sm font-bold flex items-center gap-2 transition">
-                                <i class="fa-solid fa-forward-step"></i> Next Patient
-                            </button>
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1">
+                        <!-- Current Patient -->
+                        <div class="lg:col-span-1 bg-white rounded-2xl shadow-sm border-t-4 border-blue-500 p-6 text-center flex flex-col justify-center">
+                            <p class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Current Patient</p>
+                            <div id="q-curr-token" class="text-7xl font-black text-gray-800 mb-4">-</div>
+                            <h3 id="q-curr-name" class="text-2xl font-bold text-blue-600 mb-2">Waiting...</h3>
+                            <p id="q-curr-reason" class="text-gray-500 bg-gray-50 inline-block px-4 py-2 rounded-full mx-auto text-sm">--</p>
+                            
+                            <div class="mt-8 pt-6 border-t border-gray-100 flex gap-3 justify-center">
+                                <button onclick="markCurrentComplete()" class="flex-1 bg-gray-100 hover:bg-green-100 text-gray-600 hover:text-green-600 py-2 rounded-lg font-semibold transition text-sm">
+                                    <i class="fa-solid fa-check mr-1"></i> Complete
+                                </button>
+                                <button onclick="advanceQueue()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-bold shadow-md transition text-sm">
+                                    Call Next <i class="fa-solid fa-arrow-right ml-1"></i>
+                                </button>
+                            </div>
                         </div>
-                        <div class="p-6">
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                <!-- Current Token Card -->
-                                <div class="bg-blue-50 rounded-xl p-6 border border-blue-100 text-center relative overflow-hidden">
-                                    <div class="absolute top-0 left-0 w-full h-1 bg-blue-500"></div>
-                                    <h4 class="text-blue-600 font-bold tracking-wider text-sm mb-4">CURRENT PATIENT</h4>
-                                    <div id="qm-current-token" class="text-6xl font-black text-gray-800 mb-2">-</div>
-                                    <div id="qm-current-name" class="text-xl font-semibold text-gray-700 mb-1">Waiting...</div>
-                                    <div id="qm-current-reason" class="text-gray-500 text-sm"></div>
+
+                        <!-- Waiting List -->
+                        <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col">
+                            <div class="flex justify-between items-center mb-6">
+                                <h3 class="text-lg font-bold text-gray-800">Waiting Line</h3>
+                                <span class="bg-orange-100 text-orange-600 text-xs font-bold px-3 py-1 rounded-full"><span id="q-wait-count">0</span> In Queue</span>
+                            </div>
+                            
+                            <!-- Up Next Highlight -->
+                            <div class="bg-orange-50 border border-orange-100 rounded-xl p-4 flex items-center gap-4 mb-6">
+                                <div id="q-next-token" class="w-14 h-14 bg-white rounded-full flex items-center justify-center text-xl font-bold text-orange-500 shadow-sm">
+                                    -
                                 </div>
-                                <!-- Next Token Info -->
-                                <div class="bg-orange-50 rounded-xl p-6 border border-orange-100 flex flex-col justify-center">
-                                    <h4 class="text-orange-600 font-bold tracking-wider text-sm mb-2">UP NEXT</h4>
-                                    <div class="flex items-center gap-4 mb-4">
-                                        <div id="qm-next-token" class="bg-white text-orange-500 w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold shadow-sm border border-orange-200">-</div>
-                                        <div>
-                                            <div id="qm-next-name" class="font-bold text-gray-800 text-lg">None</div>
-                                            <div id="qm-next-reason" class="text-gray-500 text-sm">Queue Empty</div>
-                                        </div>
-                                    </div>
-                                    <div class="mt-auto text-sm text-gray-600">
-                                        <i class="fa-solid fa-users text-gray-400 mr-1"></i> <span id="qm-waiting-count" class="font-bold">0</span> patients waiting in line.
-                                    </div>
+                                <div class="flex-1">
+                                    <p class="text-xs font-bold text-orange-600 uppercase">Up Next</p>
+                                    <h4 id="q-next-name" class="text-lg font-bold text-gray-800">None</h4>
+                                    <p id="q-next-reason" class="text-sm text-gray-500">Queue is empty</p>
                                 </div>
+                            </div>
+
+                            <hr class="border-gray-100 mb-4">
+                            
+                            <!-- Skipped List (Informational) -->
+                            <div class="flex-1">
+                                <h4 class="text-sm font-bold text-gray-500 mb-3">Recently Skipped</h4>
+                                <ul id="q-skipped-list" class="space-y-3">
+                                    <li class="text-sm text-gray-400 italic">No skipped patients</li>
+                                </ul>
                             </div>
                         </div>
                     </div>
                 </div>
-                
+
+                <!-- ================================== -->
+                <!-- VIEW 3: PATIENTS DIRECTORY -->
+                <!-- ================================== -->
+                <div id="view-patients" class="hidden bg-white rounded-2xl shadow-sm border border-gray-100 p-6 fade-in h-full flex flex-col">
+                    <div class="flex flex-col md:flex-row justify-between gap-4 mb-6">
+                        <h2 class="text-xl font-bold text-gray-800">Patient Directory</h2>
+                        <div class="relative w-full md:w-72">
+                            <i class="fa-solid fa-search absolute left-3 top-3 text-gray-400"></i>
+                            <input type="text" id="patient-search" placeholder="Search by name or number..." class="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 transition text-sm">
+                        </div>
+                    </div>
+                    
+                    <div class="overflow-x-auto flex-1">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider border-b border-gray-200">
+                                    <th class="p-4 font-semibold rounded-tl-lg">ID</th>
+                                    <th class="p-4 font-semibold">Patient Name</th>
+                                    <th class="p-4 font-semibold">WhatsApp No.</th>
+                                    <th class="p-4 font-semibold">Total Visits</th>
+                                    <th class="p-4 font-semibold text-center rounded-tr-lg">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="patients-table-body" class="text-sm text-gray-700 divide-y divide-gray-100">
+                                <tr>
+                                    <td colspan="5" class="p-8 text-center text-gray-500">
+                                        <i class="fa-solid fa-spinner fa-spin text-2xl mb-2 text-blue-500"></i><br>Loading patients...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
             </div>
         </main>
     </div>
 
+    <!-- ========================================== -->
+    <!-- MODALS -->
+    <!-- ========================================== -->
+
     <!-- Add Doctor Modal -->
-    <div id="add-doctor-modal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 hidden opacity-0 transition-opacity">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden transform scale-95 transition-transform duration-200" id="add-doctor-content">
-            <div class="bg-indigo-600 text-white p-4 flex justify-between items-center">
-                <h3 class="font-bold text-lg"><i class="fa-solid fa-user-doctor mr-2"></i> Add New Doctor</h3>
-                <button onclick="closeAddDoctorModal()" class="text-white hover:text-indigo-200"><i class="fa-solid fa-times text-xl"></i></button>
+    <div id="add-doctor-modal" class="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-200">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform scale-95 transition-transform duration-200" id="add-doctor-content">
+            <div class="bg-indigo-600 px-6 py-4 flex justify-between items-center">
+                <h3 class="text-white font-bold text-lg"><i class="fa-solid fa-user-doctor mr-2"></i> Add New Doctor</h3>
+                <button onclick="closeModal('add-doctor-modal')" class="text-indigo-200 hover:text-white transition"><i class="fa-solid fa-xmark text-xl"></i></button>
             </div>
             <form id="add-doctor-form" class="p-6 space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Doctor Name *</label>
-                    <input type="text" id="new-doc-name" class="w-full border rounded px-3 py-2 outline-none focus:border-indigo-500" required placeholder="Dr. Pankaj">
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">Doctor Name</label>
+                    <input type="text" id="new-doc-name" class="w-full px-4 py-2 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" required placeholder="e.g. Dr. Pankaj">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Email / Login ID *</label>
-                    <input type="email" id="new-doc-email" class="w-full border rounded px-3 py-2 outline-none focus:border-indigo-500" required placeholder="dr.pankaj@abc.com">
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">Email (Login ID)</label>
+                    <input type="email" id="new-doc-email" class="w-full px-4 py-2 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" required placeholder="dr.pankaj@clinic.com">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Password *</label>
-                    <input type="password" id="new-doc-password" class="w-full border rounded px-3 py-2 outline-none focus:border-indigo-500" required placeholder="Min 6 characters">
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">Account Password</label>
+                    <input type="password" id="new-doc-password" class="w-full px-4 py-2 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" required placeholder="Min 6 characters">
                 </div>
-                
-                <div class="mt-6 flex justify-end gap-3 pt-4 border-t">
-                    <button type="button" onclick="closeAddDoctorModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancel</button>
-                    <button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded shadow transition">Add Doctor</button>
+                <div class="mt-6 pt-4 border-t border-gray-100 flex justify-end gap-3">
+                    <button type="button" onclick="closeModal('add-doctor-modal')" class="px-5 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition">Cancel</button>
+                    <button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg shadow transition flex items-center">
+                        Save Doctor
+                    </button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- Walk-in Modal -->
-    <div id="walkin-modal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 hidden opacity-0 transition-opacity">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden transform scale-95 transition-transform duration-200" id="walkin-modal-content">
-            <div class="bg-blue-600 text-white p-4 flex justify-between items-center">
-                <h3 class="font-bold text-lg"><i class="fa-solid fa-user-plus mr-2"></i> Add Walk-in Patient</h3>
-                <button onclick="closeWalkinModal()" class="text-white hover:text-gray-200"><i class="fa-solid fa-times text-xl"></i></button>
+    <!-- Walk-in Token Modal -->
+    <div id="walkin-modal" class="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-200">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden transform scale-95 transition-transform duration-200" id="walkin-content">
+            <div class="bg-blue-600 px-6 py-4 flex justify-between items-center">
+                <h3 class="text-white font-bold text-lg"><i class="fa-solid fa-ticket mr-2"></i> Issue Walk-in Token</h3>
+                <button onclick="closeModal('walkin-modal')" class="text-blue-200 hover:text-white transition"><i class="fa-solid fa-xmark text-xl"></i></button>
             </div>
             <form id="walkin-form" class="p-6 space-y-4">
                 <div class="grid grid-cols-2 gap-4">
                     <div class="col-span-2">
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Select Doctor *</label>
-                        <select id="wi-doctor" class="w-full border rounded px-3 py-2 outline-none focus:border-blue-500 bg-gray-50" required>
-                            <option value="">-- Choose Doctor --</option>
-                            <!-- Populated dynamically -->
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Select Doctor *</label>
+                        <select id="wi-doctor" class="w-full px-4 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required>
+                            <option value="">-- Choose Available Doctor --</option>
                         </select>
                     </div>
                     <div class="col-span-2">
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Patient Name *</label>
-                        <input type="text" id="wi-name" class="w-full border rounded px-3 py-2 outline-none focus:border-blue-500" required>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Patient Name *</label>
+                        <input type="text" id="wi-name" class="w-full px-4 py-2 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required placeholder="Full Name">
                     </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">WhatsApp No. *</label>
-                        <input type="text" id="wi-whatsapp" class="w-full border rounded px-3 py-2 outline-none focus:border-blue-500" required placeholder="919876543210">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Age & Gender</label>
-                        <div class="flex gap-2">
-                            <input type="number" id="wi-age" class="w-16 border rounded px-2 py-2 outline-none focus:border-blue-500" placeholder="Age">
-                            <select id="wi-gender" class="flex-1 border rounded px-2 py-2 outline-none focus:border-blue-500">
-                                <option value="Male">Male</option>
-                                <option value="Female">Female</option>
-                            </select>
+                    <div class="col-span-2">
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">WhatsApp Number *</label>
+                        <div class="relative">
+                            <span class="absolute left-4 top-2.5 text-gray-500 font-bold">+91</span>
+                            <input type="text" id="wi-whatsapp" class="w-full pl-12 pr-4 py-2 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required placeholder="9876543210">
                         </div>
                     </div>
                     <div class="col-span-2">
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Visit Reason *</label>
-                        <input type="text" id="wi-reason" class="w-full border rounded px-3 py-2 outline-none focus:border-blue-500" required placeholder="Fever, Routine checkup...">
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Visit Reason *</label>
+                        <input type="text" id="wi-reason" class="w-full px-4 py-2 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required placeholder="Fever, Routine checkup...">
                     </div>
                 </div>
-                <div class="mt-6 flex justify-end gap-3 pt-4 border-t">
-                    <button type="button" onclick="closeWalkinModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancel</button>
-                    <button type="submit" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded shadow transition">Generate Token</button>
+                <div class="mt-6 pt-4 border-t border-gray-100 flex justify-end gap-3">
+                    <button type="button" onclick="closeModal('walkin-modal')" class="px-5 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition">Cancel</button>
+                    <button type="submit" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-md transition flex items-center">
+                        Generate Token
+                    </button>
                 </div>
             </form>
         </div>
     </div>
 
+
+    <!-- ========================================== -->
+    <!-- JAVASCRIPT LOGIC -->
+    <!-- ========================================== -->
     <script>
-        // Use the current origin dynamically so it works seamlessly on Railway
+        // CORE CONFIGURATION - Perfectly matches Railway Domain
         const API_BASE = window.location.origin;
         
+        // State
         let adminToken = localStorage.getItem('adminToken');
-        let currentManagingDoctorId = null; 
-        let globalDoctorsList = [];
+        let currentManagingDocId = null;
+        let globalDoctors = [];
 
-        // INIT
+        // Initialization
         window.onload = () => {
             if (adminToken) {
-                showDashboard();
+                showApp();
                 loadDashboardData();
-                setInterval(loadDashboardData, 15000); // Auto-refresh data every 15s
+                startClock();
+                setInterval(loadDashboardData, 10000); // Poll every 10s
             } else {
-                showLogin();
+                document.getElementById('login-screen').classList.remove('hidden');
             }
         };
 
-        // UI Routing
-        function showLogin() {
-            document.getElementById('login-screen').classList.remove('hidden');
-            document.getElementById('main-dashboard').classList.add('hidden');
-        }
-
-        function showDashboard() {
-            document.getElementById('login-screen').classList.add('hidden');
-            document.getElementById('main-dashboard').classList.remove('hidden');
-        }
-
-        function showSection(section) {
-            document.getElementById('section-overview').classList.remove('hidden');
-        }
-
-        // LOGIN
+        // --- AUTH LOGIC ---
         document.getElementById('login-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const u = document.getElementById('username').value;
-            const p = document.getElementById('password').value;
-            const btn = e.target.querySelector('button');
-            btn.innerHTML = '<div class="spinner border-t-white w-6 h-6 mx-auto"></div>';
+            const btn = document.getElementById('login-btn');
+            btn.innerHTML = '<span class="spinner"></span>';
+            btn.disabled = true;
+
+            const fd = new FormData();
+            fd.append('username', document.getElementById('username').value);
+            fd.append('password', document.getElementById('password').value);
 
             try {
-                const fd = new FormData();
-                fd.append('username', u);
-                fd.append('password', p);
-                
                 const res = await fetch(`${API_BASE}/auth/login`, { method: 'POST', body: fd });
                 const data = await res.json();
-                
                 if (res.ok) {
                     adminToken = data.access_token;
                     localStorage.setItem('adminToken', adminToken);
-                    Swal.fire({icon: 'success', title: 'Welcome Admin', timer: 1500, showConfirmButton: false});
-                    showDashboard();
+                    Swal.fire({icon: 'success', title: 'Authenticated', timer: 1000, showConfirmButton: false});
+                    showApp();
                     loadDashboardData();
                 } else {
                     Swal.fire({icon: 'error', title: 'Login Failed', text: data.detail});
                 }
             } catch (err) {
-                Swal.fire({icon: 'error', title: 'Network Error', text: 'Could not connect to backend'});
+                Swal.fire({icon: 'error', title: 'Network Error', text: 'Server unreachable.'});
             } finally {
-                btn.innerHTML = 'Secure Login';
+                btn.innerHTML = '<span>Secure Login</span>';
+                btn.disabled = false;
             }
         });
 
         function logout() {
             localStorage.removeItem('adminToken');
             adminToken = null;
-            showLogin();
+            window.location.reload();
         }
 
-        // API HELPERS
+        function showApp() {
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('main-dashboard').classList.remove('hidden');
+        }
+
+        // --- API WRAPPERS ---
         async function apiGet(endpoint) {
-            const res = await fetch(`${API_BASE}${endpoint}`, {
-                headers: { 'Authorization': `Bearer ${adminToken}` }
-            });
-            if (res.status === 401 || res.status === 403) { logout(); throw new Error('Unauthorized'); }
+            const res = await fetch(`${API_BASE}${endpoint}`, { headers: { 'Authorization': `Bearer ${adminToken}` }});
+            if (res.status === 401 || res.status === 403) logout();
             return res.json();
         }
 
         async function apiPost(endpoint, body) {
             const res = await fetch(`${API_BASE}${endpoint}`, {
                 method: 'POST',
-                headers: { 
-                    'Authorization': `Bearer ${adminToken}`,
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Authorization': `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify(body)
             });
-            if (res.status === 401 || res.status === 403) { logout(); throw new Error('Unauthorized'); }
+            if (res.status === 401 || res.status === 403) logout();
             return res;
         }
 
-        // LOAD DASHBOARD DATA
+        // --- UI NAVIGATION ---
+        function switchTab(tabId) {
+            document.getElementById('view-dashboard').classList.add('hidden');
+            document.getElementById('view-queue').classList.add('hidden');
+            document.getElementById('view-patients').classList.add('hidden');
+            
+            document.getElementById(`view-${tabId}`).classList.remove('hidden');
+            document.getElementById('topbar-title').innerText = tabId === 'dashboard' ? 'Overview' : 'Patient Directory';
+
+            // Reset tab colors
+            document.getElementById('tab-dashboard').className = "w-full flex items-center gap-4 px-4 py-3 text-slate-300 hover:bg-slate-700 rounded-xl transition";
+            document.getElementById('tab-patients').className = "w-full flex items-center gap-4 px-4 py-3 text-slate-300 hover:bg-slate-700 rounded-xl transition";
+            
+            // Set active
+            document.getElementById(`tab-${tabId}`).className = "w-full flex items-center gap-4 px-4 py-3 bg-blue-600 text-white rounded-xl shadow transition";
+
+            if(tabId === 'patients') loadPatientsList();
+        }
+
+        // --- DATA LOADING ---
         async function loadDashboardData() {
-            if (!adminToken) return;
+            if(!adminToken) return;
             try {
-                // Fetch Stats
+                // 1. Stats
                 const stats = await apiGet('/doctor/today');
-                document.getElementById('stat-total').innerText = stats.total_count || 0;
-                document.getElementById('stat-waiting').innerText = stats.waiting_count || 0;
-                document.getElementById('stat-completed').innerText = stats.completed_count || 0;
-                document.getElementById('stat-cancelled').innerText = stats.cancelled_count || 0;
+                document.getElementById('kpi-total').innerText = stats.total_count || 0;
+                document.getElementById('kpi-waiting').innerText = stats.waiting_count || 0;
+                document.getElementById('kpi-completed').innerText = stats.completed_count || 0;
+                document.getElementById('kpi-cancelled').innerText = stats.cancelled_count || 0;
 
-                // Fetch Real Doctors Only
+                // 2. Doctors
                 const doctors = await apiGet('/doctors');
-                globalDoctorsList = doctors;
+                globalDoctors = doctors;
                 renderDoctors(doctors);
-                populateDoctorDropdown(doctors);
+                updateDoctorDropdown(doctors);
 
-                // Refresh specific doctor queue if open
-                if (currentManagingDoctorId !== null && !document.getElementById('queue-manager').classList.contains('hidden')) {
-                    loadSpecificQueue(currentManagingDoctorId, false);
+                // 3. Queue view if active
+                if(currentManagingDocId && !document.getElementById('view-queue').classList.contains('hidden')){
+                    await renderSpecificQueue(currentManagingDocId);
                 }
-            } catch (e) {
-                console.error("Dashboard Load Error:", e);
-            }
+            } catch(e) { console.error(e); }
         }
 
         function renderDoctors(doctors) {
-            const grid = document.getElementById('doctors-grid');
-            grid.innerHTML = '';
+            const container = document.getElementById('doctors-list-container');
+            container.innerHTML = '';
             
-            if(doctors.length === 0) {
-                grid.innerHTML = '<div class="col-span-full text-center p-8 text-gray-500 bg-white rounded shadow-sm border border-gray-100">No active doctors found. Click "Add Doctor" to get started.</div>';
+            if(doctors.length === 0){
+                container.innerHTML = `<div class="col-span-full p-8 text-center text-gray-400 bg-gray-50 rounded-xl border border-dashed">No doctors found. Please add a doctor.</div>`;
                 return;
             }
 
             doctors.forEach(doc => {
-                const statusDot = doc.is_online ? '<span class="flex w-3 h-3 bg-green-500 rounded-full relative"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span></span>' : '<span class="w-3 h-3 bg-red-500 rounded-full"></span>';
-                const statusText = doc.is_online ? 'ONLINE' : 'OFFLINE';
                 const displayName = doc.name.toLowerCase().startsWith('dr') ? doc.name : `Dr. ${doc.name}`;
-                
-                grid.innerHTML += `
-                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition">
-                        <div class="flex justify-between items-start mb-4">
-                            <div class="flex items-center gap-3">
-                                <div class="bg-blue-100 text-blue-600 w-12 h-12 rounded-full flex items-center justify-center text-xl shadow-inner">
-                                    <i class="fa-solid fa-user-doctor"></i>
-                                </div>
-                                <div>
-                                    <h3 class="font-bold text-lg text-gray-800">${displayName}</h3>
-                                    <div class="flex items-center gap-1.5 text-xs font-semibold text-gray-500">
-                                        ${statusDot} ${statusText}
-                                    </div>
-                                </div>
+                container.innerHTML += `
+                    <div class="bg-white border border-gray-100 rounded-xl p-5 shadow-sm hover:shadow-md transition group">
+                        <div class="flex items-center gap-4 mb-4">
+                            <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center text-xl font-bold">
+                                <i class="fa-solid fa-user-doctor"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-gray-800 text-lg">${displayName}</h4>
+                                <span class="text-xs font-semibold ${doc.is_online ? 'text-green-500' : 'text-red-500'}">● ${doc.is_online ? 'ONLINE' : 'OFFLINE'}</span>
                             </div>
                         </div>
-                        <button onclick="openQueueManager(${doc.id}, '${displayName}')" class="w-full mt-2 bg-slate-50 hover:bg-blue-50 border border-slate-200 text-slate-700 font-semibold py-2 rounded transition flex justify-center items-center gap-2">
-                            <i class="fa-solid fa-clipboard-list"></i> Manage Queue
+                        <button onclick="openQueue(${doc.id}, '${displayName}')" class="w-full bg-slate-50 hover:bg-blue-50 text-slate-700 hover:text-blue-700 font-semibold py-2.5 rounded-lg border border-slate-200 hover:border-blue-200 transition">
+                            Manage Queue
                         </button>
                     </div>
                 `;
             });
         }
 
-        // QUEUE MANAGEMENT LOGIC
-        function openQueueManager(docId, docName) {
-            currentManagingDoctorId = docId;
-            document.getElementById('doctors-grid').classList.add('hidden');
-            document.getElementById('queue-manager').classList.remove('hidden');
-            document.getElementById('qm-doc-name').innerText = `Queue: ${docName}`;
+        // --- QUEUE MANAGEMENT ---
+        async function openQueue(id, name) {
+            currentManagingDocId = id;
+            document.getElementById('queue-doc-name').innerText = name + ' - Queue';
             
-            document.getElementById('qm-current-token').innerText = '...';
-            document.getElementById('qm-next-token').innerText = '...';
-            
-            loadSpecificQueue(docId, true);
+            // Switch views
+            document.getElementById('view-dashboard').classList.add('hidden');
+            document.getElementById('view-queue').classList.remove('hidden');
+            document.getElementById('topbar-title').innerText = 'Queue Management';
+
+            await renderSpecificQueue(id);
         }
 
-        function closeQueueManager() {
-            currentManagingDoctorId = null;
-            document.getElementById('queue-manager').classList.add('hidden');
-            document.getElementById('doctors-grid').classList.remove('hidden');
-            loadDashboardData();
+        function closeQueueView() {
+            currentManagingDocId = null;
+            document.getElementById('view-queue').classList.add('hidden');
+            document.getElementById('view-dashboard').classList.remove('hidden');
+            document.getElementById('topbar-title').innerText = 'Overview';
         }
 
-        async function loadSpecificQueue(docId, showLoading = false) {
+        async function renderSpecificQueue(id) {
             try {
-                const q = await apiGet(`/doctor/${docId}/queue`);
+                const q = await apiGet(`/doctor/${id}/queue`);
                 
+                // Current
                 if(q.current_token) {
-                    document.getElementById('qm-current-token').innerText = `#${q.current_token.token_number}`;
-                    document.getElementById('qm-current-name').innerText = q.current_token.patient_name;
-                    document.getElementById('qm-current-reason').innerText = `Reason: ${q.current_token.visit_reason}`;
+                    document.getElementById('q-curr-token').innerText = q.current_token.token_number;
+                    document.getElementById('q-curr-name').innerText = q.current_token.patient_name;
+                    document.getElementById('q-curr-reason').innerText = q.current_token.visit_reason;
                 } else {
-                    document.getElementById('qm-current-token').innerText = "-";
-                    document.getElementById('qm-current-name').innerText = "Waiting...";
-                    document.getElementById('qm-current-reason').innerText = "Call Next Patient";
+                    document.getElementById('q-curr-token').innerText = "-";
+                    document.getElementById('q-curr-name').innerText = "Waiting...";
+                    document.getElementById('q-curr-reason').innerText = "Call Next Patient";
                 }
 
+                // Next
                 if(q.next_patient) {
-                    document.getElementById('qm-next-token').innerText = q.next_patient.token_number;
-                    document.getElementById('qm-next-name').innerText = q.next_patient.patient_name;
-                    document.getElementById('qm-next-reason').innerText = `Reason: ${q.next_patient.visit_reason}`;
+                    document.getElementById('q-next-token').innerText = q.next_patient.token_number;
+                    document.getElementById('q-next-name').innerText = q.next_patient.patient_name;
+                    document.getElementById('q-next-reason').innerText = q.next_patient.visit_reason;
                 } else {
-                    document.getElementById('qm-next-token').innerText = "-";
-                    document.getElementById('qm-next-name').innerText = "None";
-                    document.getElementById('qm-next-reason').innerText = "Queue Empty";
+                    document.getElementById('q-next-token').innerText = "-";
+                    document.getElementById('q-next-name').innerText = "None";
+                    document.getElementById('q-next-reason').innerText = "Queue Empty";
                 }
 
-                document.getElementById('qm-waiting-count').innerText = q.waiting_count;
-            } catch(e) {
-                console.error("Queue load error", e);
-            }
+                document.getElementById('q-wait-count').innerText = q.waiting_count;
+
+                // Render Skipped
+                const skipList = document.getElementById('q-skipped-list');
+                if(q.skipped_patients && q.skipped_patients.length > 0) {
+                    skipList.innerHTML = q.skipped_patients.map(p => `
+                        <li class="flex justify-between items-center bg-gray-50 px-3 py-2 rounded border border-gray-100">
+                            <span class="text-sm font-semibold text-gray-700">#${p.token_number} - ${p.patient_name}</span>
+                            <button onclick="recallToken(${p.id})" class="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded hover:bg-blue-200">Recall</button>
+                        </li>
+                    `).join('');
+                } else {
+                    skipList.innerHTML = `<li class="text-sm text-gray-400 italic">No skipped patients</li>`;
+                }
+
+            } catch(e) { console.error("Error loading queue details"); }
         }
 
-        async function advanceSpecificQueue() {
-            if(!currentManagingDoctorId) return;
+        async function advanceQueue() {
+            if(!currentManagingDocId) return;
             try {
-                // Safely advance the queue for the specific doctor managed
-                const res = await apiPost(`/doctor/${currentManagingDoctorId}/next-patient`, {});
+                // FIXED SPECIFIC ENDPOINT
+                const res = await apiPost(`/doctor/${currentManagingDocId}/next-patient`, {});
                 const data = await res.json();
-                
                 if(res.ok) {
-                    Swal.fire({icon: 'success', title: 'Queue Advanced', text: data.message, timer: 1000, showConfirmButton: false});
-                    loadSpecificQueue(currentManagingDoctorId);
+                    renderSpecificQueue(currentManagingDocId);
                     loadDashboardData();
                 } else {
-                    Swal.fire({icon: 'info', title: 'Queue Action', text: data.detail || data.message});
+                    Swal.fire({icon:'info', title:'Queue Update', text: data.detail || data.message});
                 }
-            } catch(e) {
-                Swal.fire({icon: 'error', title: 'Network Error advancing queue'});
-            }
+            } catch(e) { Swal.fire('Error', 'Network error', 'error'); }
+        }
+        
+        async function markCurrentComplete() {
+            advanceQueue(); // Completes current and calls next
         }
 
-        // ADD DOCTOR MODAL LOGIC
-        function openAddDoctorModal() {
-            document.getElementById('add-doctor-modal').classList.remove('hidden');
-            setTimeout(() => {
-                document.getElementById('add-doctor-modal').classList.remove('opacity-0');
-                document.getElementById('add-doctor-content').classList.remove('scale-95');
-            }, 10);
+        async function recallToken(visitId) {
+            try {
+                const res = await apiPost(`/visit/${visitId}/recall`, {});
+                if(res.ok) {
+                    renderSpecificQueue(currentManagingDocId);
+                }
+            } catch(e) {}
         }
 
-        function closeAddDoctorModal() {
-            document.getElementById('add-doctor-modal').classList.add('opacity-0');
-            document.getElementById('add-doctor-content').classList.add('scale-95');
-            setTimeout(() => {
-                document.getElementById('add-doctor-modal').classList.add('hidden');
-                document.getElementById('add-doctor-form').reset();
-            }, 200);
-        }
-
+        // --- DOCTOR ADDITION (New Endpoint integration) ---
         document.getElementById('add-doctor-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            
-            const name = document.getElementById('new-doc-name').value;
-            const email = document.getElementById('new-doc-email').value;
-            const password = document.getElementById('new-doc-password').value;
             const btn = e.target.querySelector('button[type="submit"]');
-
             btn.disabled = true;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+            btn.innerHTML = '<span class="spinner"></span> Saving...';
 
-            try {
-                const res = await fetch(`${API_BASE}/doctors/add`, {
-                    method: 'POST',
-                    headers: { 
-                        'Authorization': `Bearer ${adminToken}`,
-                        'Content-Type': 'application/json' 
-                    },
-                    body: JSON.stringify({ name, email, password })
-                });
-                
-                const data = await res.json();
-                
-                if (res.ok) {
-                    Swal.fire({icon: 'success', title: 'Success!', text: data.message, timer: 2000});
-                    closeAddDoctorModal();
-                    loadDashboardData(); // Instantly refresh the UI to show the new doctor
-                } else {
-                    // Show exact validation/duplicate error from backend
-                    Swal.fire({icon: 'error', title: 'Action Failed', text: data.detail || 'An error occurred'});
-                }
-            } catch (err) {
-                Swal.fire({icon: 'error', title: 'Network Error', text: 'Could not connect to the server.'});
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = 'Add Doctor';
-            }
-        });
-
-        // WALKIN MODAL LOGIC
-        function populateDoctorDropdown(doctors) {
-            const sel = document.getElementById('wi-doctor');
-            const prevVal = sel.value;
-            sel.innerHTML = '<option value="">-- Choose Doctor --</option>';
-            doctors.forEach(d => {
-                const displayName = d.name.toLowerCase().startsWith('dr') ? d.name : `Dr. ${d.name}`;
-                sel.innerHTML += `<option value="${d.id}">${displayName}</option>`;
-            });
-            if(prevVal) sel.value = prevVal; 
-        }
-
-        function openWalkinModal() {
-            document.getElementById('walkin-modal').classList.remove('hidden');
-            setTimeout(() => {
-                document.getElementById('walkin-modal').classList.remove('opacity-0');
-                document.getElementById('walkin-modal-content').classList.remove('scale-95');
-            }, 10);
-            
-            if(currentManagingDoctorId) {
-                document.getElementById('wi-doctor').value = currentManagingDoctorId;
-            } else {
-                document.getElementById('wi-doctor').value = "";
-            }
-        }
-
-        function closeWalkinModal() {
-            document.getElementById('walkin-modal').classList.add('opacity-0');
-            document.getElementById('walkin-modal-content').classList.add('scale-95');
-            setTimeout(() => {
-                document.getElementById('walkin-modal').classList.add('hidden');
-                document.getElementById('walkin-form').reset();
-            }, 200);
-        }
-
-        document.getElementById('walkin-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const body = {
-                doctor_id: parseInt(document.getElementById('wi-doctor').value),
-                name: document.getElementById('wi-name').value,
-                whatsapp_number: document.getElementById('wi-whatsapp').value,
-                phone_number: document.getElementById('wi-whatsapp').value, 
-                age: parseInt(document.getElementById('wi-age').value) || 0,
-                gender: document.getElementById('wi-gender').value,
-                visit_reason: document.getElementById('wi-reason').value
+            const payload = {
+                name: document.getElementById('new-doc-name').value,
+                email: document.getElementById('new-doc-email').value,
+                password: document.getElementById('new-doc-password').value
             };
 
-            const btn = e.target.querySelector('button[type="submit"]');
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-            btn.disabled = true;
-
             try {
-                const res = await apiPost('/doctor/add-walkin', body);
+                // FIXED ENDPOINT
+                const res = await apiPost('/doctors/add', payload);
                 const data = await res.json();
+                
                 if(res.ok) {
-                    Swal.fire({icon: 'success', title: 'Token Generated!', text: `Token Number: #${data.token_number}`, timer: 2000});
-                    closeWalkinModal();
+                    Swal.fire({icon: 'success', title: 'Doctor Added', text: data.message, timer: 2000});
+                    closeModal('add-doctor-modal');
+                    e.target.reset();
                     loadDashboardData();
                 } else {
                     Swal.fire({icon: 'error', title: 'Failed', text: data.detail});
                 }
             } catch(err) {
-                Swal.fire({icon: 'error', title: 'Network Error'});
+                Swal.fire({icon: 'error', title: 'Error', text: 'Server connection failed.'});
             } finally {
-                btn.innerHTML = 'Generate Token';
                 btn.disabled = false;
+                btn.innerHTML = 'Save Doctor';
             }
         });
+
+        // --- WALKIN PATIENT ---
+        function updateDoctorDropdown(doctors) {
+            const sel = document.getElementById('wi-doctor');
+            const currentVal = sel.value;
+            sel.innerHTML = '<option value="">-- Choose Available Doctor --</option>';
+            doctors.forEach(d => {
+                const displayName = d.name.toLowerCase().startsWith('dr') ? d.name : `Dr. ${d.name}`;
+                sel.innerHTML += `<option value="${d.id}">${displayName}</option>`;
+            });
+            if(currentVal) sel.value = currentVal;
+        }
+
+        document.getElementById('walkin-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const num = document.getElementById('wi-whatsapp').value;
+            const fullNum = num.startsWith('91') ? num : '91' + num;
+
+            const payload = {
+                doctor_id: parseInt(document.getElementById('wi-doctor').value),
+                name: document.getElementById('wi-name').value,
+                whatsapp_number: fullNum,
+                phone_number: fullNum,
+                age: 0,
+                gender: "Not Specified",
+                visit_reason: document.getElementById('wi-reason').value
+            };
+
+            try {
+                const res = await apiPost('/doctor/add-walkin', payload);
+                const data = await res.json();
+                if(res.ok) {
+                    Swal.fire({icon: 'success', title: 'Token Generated', text: `Token #${data.token_number} assigned.`, timer: 2500});
+                    closeModal('walkin-modal');
+                    e.target.reset();
+                    loadDashboardData();
+                } else {
+                    Swal.fire({icon: 'error', title: 'Failed', text: data.detail});
+                }
+            } catch(err) {
+                Swal.fire('Error', 'Network connection failed.', 'error');
+            }
+        });
+
+        // --- PATIENTS DIRECTORY ---
+        async function loadPatientsList() {
+            try {
+                const patients = await apiGet('/doctor/patients');
+                const tbody = document.getElementById('patients-table-body');
+                tbody.innerHTML = '';
+                
+                if(patients.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-gray-500">No patients found.</td></tr>';
+                    return;
+                }
+
+                patients.forEach(p => {
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-blue-50 transition border-b border-gray-100 last:border-0">
+                            <td class="p-4 font-semibold text-gray-600">PT-${p.id.toString().padStart(4, '0')}</td>
+                            <td class="p-4 font-bold text-gray-800">${p.name}</td>
+                            <td class="p-4 text-gray-600">${p.whatsapp_number}</td>
+                            <td class="p-4 text-center"><span class="bg-blue-100 text-blue-600 px-3 py-1 rounded-full text-xs font-bold">${p.visit_count}</span></td>
+                            <td class="p-4 text-center">
+                                <button class="text-blue-500 hover:text-blue-700 font-semibold text-sm bg-blue-50 px-3 py-1.5 rounded transition">View History</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            } catch(e) {}
+        }
+
+        // --- MODAL UTILS ---
+        function openModal(id) {
+            const el = document.getElementById(id);
+            el.classList.remove('hidden');
+            // Little delay to allow display:block before opacity transition
+            setTimeout(() => {
+                el.classList.remove('opacity-0');
+                el.children[0].classList.remove('scale-95');
+            }, 10);
+            
+            // Auto-select doctor for walkin if inside queue view
+            if(id === 'walkin-modal' && currentManagingDocId) {
+                document.getElementById('wi-doctor').value = currentManagingDocId;
+            }
+        }
+
+        function closeModal(id) {
+            const el = document.getElementById(id);
+            el.classList.add('opacity-0');
+            el.children[0].classList.add('scale-95');
+            setTimeout(() => {
+                el.classList.add('hidden');
+            }, 200);
+        }
+
+        // --- CLOCK UTILS ---
+        function startClock() {
+            setInterval(() => {
+                const now = new Date();
+                document.getElementById('time-display').innerText = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+            }, 1000);
+        }
     </script>
 </body>
 </html>
