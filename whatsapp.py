@@ -103,7 +103,7 @@ def process_whatsapp_message(db: Session, phone_number_id: str, sender_phone: st
     # 2. Handle Menu Choice
     if step == "AWAITING_MENU_CHOICE":
         if text == '1':
-            # Fetch Real Active Doctors ONLY (Strictly exclude Admin)
+            # Fetch Real Active Doctors ONLY (Strictly exclude Admin via email and is_active flag)
             admin_email = os.getenv("ADMIN_USERNAME", "admin")
             doctors = db.query(Doctor).filter(
                 Doctor.clinic_id == clinic.id,
@@ -132,6 +132,7 @@ def process_whatsapp_message(db: Session, phone_number_id: str, sender_phone: st
             today = get_today_ist()
             patient = db.query(Patient).filter(Patient.whatsapp_number == sender_phone).first()
             if patient:
+                # Get the most recent active token
                 visit = db.query(Visit).filter(Visit.patient_id == patient.id, Visit.visit_date == today, Visit.status == VisitStatus.WAITING).first()
                 if visit:
                     send_whatsapp_message(phone_number_id, sender_phone, f"Your Token is #{visit.token_number} for Dr. {visit.doctor.name}.\nPlease wait for your turn.")
@@ -150,7 +151,7 @@ def process_whatsapp_message(db: Session, phone_number_id: str, sender_phone: st
                 if visit:
                     visit.status = VisitStatus.CANCELLED
                     db.commit()
-                    send_whatsapp_message(phone_number_id, sender_phone, f"Your token #{visit.token_number} has been cancelled successfully.")
+                    send_whatsapp_message(phone_number_id, sender_phone, f"Your token #{visit.token_number} for Dr. {visit.doctor.name} has been cancelled successfully.")
                 else:
                     send_whatsapp_message(phone_number_id, sender_phone, "You don't have any active tokens to cancel.")
             else:
@@ -199,7 +200,7 @@ def process_whatsapp_message(db: Session, phone_number_id: str, sender_phone: st
                 name=patient_name,
                 whatsapp_number=sender_phone,
                 phone_number=sender_phone,
-                age=0, # Optional or collect via bot if needed
+                age=0,
                 gender="Not Specified"
             )
             db.add(patient)
@@ -210,7 +211,7 @@ def process_whatsapp_message(db: Session, phone_number_id: str, sender_phone: st
             patient.name = patient_name
             db.commit()
 
-        # Check if patient already has a waiting token for this doctor today
+        # Check if patient already has a waiting token for this specific doctor today
         today = get_today_ist()
         existing_visit = db.query(Visit).filter(
             Visit.patient_id == patient.id,
