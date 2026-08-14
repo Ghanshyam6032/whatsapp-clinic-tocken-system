@@ -4,8 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Clinic Admin Dashboard</title>
+    <!-- Tailwind CSS for Styling -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- SweetAlert2 for Notifications -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- FontAwesome for Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         .hidden { display: none !important; }
@@ -53,9 +56,6 @@
                 <button onclick="showSection('overview')" class="w-full flex items-center gap-3 px-4 py-3 bg-blue-600 rounded-lg text-left transition hover:bg-blue-500" id="nav-overview">
                     <i class="fa-solid fa-chart-line w-5"></i> Overview
                 </button>
-                <button onclick="showSection('patients')" class="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left text-slate-300 transition hover:bg-slate-700" id="nav-patients">
-                    <i class="fa-solid fa-users w-5"></i> All Patients
-                </button>
             </nav>
             <div class="p-4 border-t border-slate-700">
                 <button onclick="logout()" class="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-600/20 text-red-400 rounded-lg hover:bg-red-600 hover:text-white transition">
@@ -77,6 +77,7 @@
                 
                 <!-- OVERVIEW SECTION -->
                 <div id="section-overview" class="space-y-6">
+                    
                     <!-- Top Stats -->
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center items-center text-center">
@@ -107,7 +108,7 @@
                                 <i class="fa-solid fa-user-doctor"></i> Add Doctor
                             </button>
                             <button onclick="openWalkinModal()" class="bg-blue-600 text-white px-4 py-2.5 rounded-lg shadow font-medium hover:bg-blue-700 transition flex items-center gap-2">
-                                <i class="fa-solid fa-plus"></i> Walk-in
+                                <i class="fa-solid fa-plus"></i> Walk-in Token
                             </button>
                         </div>
                     </div>
@@ -156,15 +157,38 @@
                         </div>
                     </div>
                 </div>
-
-                <!-- PATIENTS SECTION -->
-                <div id="section-patients" class="hidden bg-white rounded-xl shadow-sm border p-6 min-h-[60vh]">
-                    <h2 class="text-xl font-bold text-gray-800 mb-4">Patient Database</h2>
-                    <p class="text-gray-500">Search and view patient history here.</p>
-                </div>
                 
             </div>
         </main>
+    </div>
+
+    <!-- Add Doctor Modal -->
+    <div id="add-doctor-modal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 hidden opacity-0 transition-opacity">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden transform scale-95 transition-transform duration-200" id="add-doctor-content">
+            <div class="bg-indigo-600 text-white p-4 flex justify-between items-center">
+                <h3 class="font-bold text-lg"><i class="fa-solid fa-user-doctor mr-2"></i> Add New Doctor</h3>
+                <button onclick="closeAddDoctorModal()" class="text-white hover:text-indigo-200"><i class="fa-solid fa-times text-xl"></i></button>
+            </div>
+            <form id="add-doctor-form" class="p-6 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Doctor Name *</label>
+                    <input type="text" id="new-doc-name" class="w-full border rounded px-3 py-2 outline-none focus:border-indigo-500" required placeholder="Dr. Pankaj">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Email / Login ID *</label>
+                    <input type="email" id="new-doc-email" class="w-full border rounded px-3 py-2 outline-none focus:border-indigo-500" required placeholder="dr.pankaj@abc.com">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Password *</label>
+                    <input type="password" id="new-doc-password" class="w-full border rounded px-3 py-2 outline-none focus:border-indigo-500" required placeholder="Min 6 characters">
+                </div>
+                
+                <div class="mt-6 flex justify-end gap-3 pt-4 border-t">
+                    <button type="button" onclick="closeAddDoctorModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancel</button>
+                    <button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded shadow transition">Add Doctor</button>
+                </div>
+            </form>
+        </div>
     </div>
 
     <!-- Walk-in Modal -->
@@ -214,37 +238,10 @@
         </div>
     </div>
 
-    <!-- Add Doctor Modal -->
-    <div id="add-doctor-modal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 hidden opacity-0 transition-opacity">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden transform scale-95 transition-transform duration-200" id="add-doctor-content">
-            <div class="bg-indigo-600 text-white p-4 flex justify-between items-center">
-                <h3 class="font-bold text-lg"><i class="fa-solid fa-user-doctor mr-2"></i> Add New Doctor</h3>
-                <button onclick="closeAddDoctorModal()" class="text-white hover:text-indigo-200"><i class="fa-solid fa-times text-xl"></i></button>
-            </div>
-            <form id="add-doctor-form" class="p-6 space-y-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Doctor Name *</label>
-                    <input type="text" id="new-doc-name" class="w-full border rounded px-3 py-2 outline-none focus:border-indigo-500" required placeholder="Dr. Pankaj">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Email / Login ID *</label>
-                    <input type="email" id="new-doc-email" class="w-full border rounded px-3 py-2 outline-none focus:border-indigo-500" required placeholder="dr.pankaj@abc.com">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Password *</label>
-                    <input type="password" id="new-doc-password" class="w-full border rounded px-3 py-2 outline-none focus:border-indigo-500" required placeholder="Min 6 characters">
-                </div>
-                
-                <div class="mt-6 flex justify-end gap-3 pt-4 border-t">
-                    <button type="button" onclick="closeAddDoctorModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancel</button>
-                    <button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded shadow transition">Add Doctor</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
     <script>
+        // Use the current origin dynamically so it works seamlessly on Railway
         const API_BASE = window.location.origin;
+        
         let adminToken = localStorage.getItem('adminToken');
         let currentManagingDoctorId = null; 
         let globalDoctorsList = [];
@@ -254,7 +251,7 @@
             if (adminToken) {
                 showDashboard();
                 loadDashboardData();
-                setInterval(loadDashboardData, 15000); // Auto-refresh every 15s
+                setInterval(loadDashboardData, 15000); // Auto-refresh data every 15s
             } else {
                 showLogin();
             }
@@ -272,13 +269,7 @@
         }
 
         function showSection(section) {
-            document.getElementById('section-overview').classList.add('hidden');
-            document.getElementById('section-patients').classList.add('hidden');
-            document.getElementById(`section-${section}`).classList.remove('hidden');
-            
-            document.getElementById('nav-overview').className = "w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition text-slate-300 hover:bg-slate-700";
-            document.getElementById('nav-patients').className = "w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition text-slate-300 hover:bg-slate-700";
-            document.getElementById(`nav-${section}`).className = "w-full flex items-center gap-3 px-4 py-3 bg-blue-600 rounded-lg text-left transition text-white hover:bg-blue-500";
+            document.getElementById('section-overview').classList.remove('hidden');
         }
 
         // LOGIN
@@ -293,20 +284,21 @@
                 const fd = new FormData();
                 fd.append('username', u);
                 fd.append('password', p);
+                
                 const res = await fetch(`${API_BASE}/auth/login`, { method: 'POST', body: fd });
                 const data = await res.json();
                 
                 if (res.ok) {
                     adminToken = data.access_token;
                     localStorage.setItem('adminToken', adminToken);
-                    Swal.fire({icon: 'success', title: 'Welcome', timer: 1500, showConfirmButton: false});
+                    Swal.fire({icon: 'success', title: 'Welcome Admin', timer: 1500, showConfirmButton: false});
                     showDashboard();
                     loadDashboardData();
                 } else {
                     Swal.fire({icon: 'error', title: 'Login Failed', text: data.detail});
                 }
             } catch (err) {
-                Swal.fire({icon: 'error', title: 'Network Error'});
+                Swal.fire({icon: 'error', title: 'Network Error', text: 'Could not connect to backend'});
             } finally {
                 btn.innerHTML = 'Secure Login';
             }
@@ -318,7 +310,7 @@
             showLogin();
         }
 
-        // API HELPER
+        // API HELPERS
         async function apiGet(endpoint) {
             const res = await fetch(`${API_BASE}${endpoint}`, {
                 headers: { 'Authorization': `Bearer ${adminToken}` }
@@ -340,26 +332,29 @@
             return res;
         }
 
-        // LOAD DATA
+        // LOAD DASHBOARD DATA
         async function loadDashboardData() {
             if (!adminToken) return;
             try {
+                // Fetch Stats
                 const stats = await apiGet('/doctor/today');
                 document.getElementById('stat-total').innerText = stats.total_count || 0;
                 document.getElementById('stat-waiting').innerText = stats.waiting_count || 0;
                 document.getElementById('stat-completed').innerText = stats.completed_count || 0;
                 document.getElementById('stat-cancelled').innerText = stats.cancelled_count || 0;
 
+                // Fetch Real Doctors Only
                 const doctors = await apiGet('/doctors');
                 globalDoctorsList = doctors;
                 renderDoctors(doctors);
                 populateDoctorDropdown(doctors);
 
+                // Refresh specific doctor queue if open
                 if (currentManagingDoctorId !== null && !document.getElementById('queue-manager').classList.contains('hidden')) {
                     loadSpecificQueue(currentManagingDoctorId, false);
                 }
             } catch (e) {
-                console.error(e);
+                console.error("Dashboard Load Error:", e);
             }
         }
 
@@ -368,13 +363,14 @@
             grid.innerHTML = '';
             
             if(doctors.length === 0) {
-                grid.innerHTML = '<div class="col-span-full text-center p-8 text-gray-500">No active doctors found. Add one above.</div>';
+                grid.innerHTML = '<div class="col-span-full text-center p-8 text-gray-500 bg-white rounded shadow-sm border border-gray-100">No active doctors found. Click "Add Doctor" to get started.</div>';
                 return;
             }
 
             doctors.forEach(doc => {
                 const statusDot = doc.is_online ? '<span class="flex w-3 h-3 bg-green-500 rounded-full relative"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span></span>' : '<span class="w-3 h-3 bg-red-500 rounded-full"></span>';
                 const statusText = doc.is_online ? 'ONLINE' : 'OFFLINE';
+                const displayName = doc.name.toLowerCase().startsWith('dr') ? doc.name : `Dr. ${doc.name}`;
                 
                 grid.innerHTML += `
                     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition">
@@ -384,14 +380,14 @@
                                     <i class="fa-solid fa-user-doctor"></i>
                                 </div>
                                 <div>
-                                    <h3 class="font-bold text-lg text-gray-800">${doc.name.startsWith('Dr.') ? doc.name : 'Dr. ' + doc.name}</h3>
+                                    <h3 class="font-bold text-lg text-gray-800">${displayName}</h3>
                                     <div class="flex items-center gap-1.5 text-xs font-semibold text-gray-500">
                                         ${statusDot} ${statusText}
                                     </div>
                                 </div>
                             </div>
                         </div>
-                        <button onclick="openQueueManager(${doc.id}, '${doc.name}')" class="w-full mt-2 bg-slate-50 hover:bg-blue-50 border border-slate-200 text-slate-700 font-semibold py-2 rounded transition flex justify-center items-center gap-2">
+                        <button onclick="openQueueManager(${doc.id}, '${displayName}')" class="w-full mt-2 bg-slate-50 hover:bg-blue-50 border border-slate-200 text-slate-700 font-semibold py-2 rounded transition flex justify-center items-center gap-2">
                             <i class="fa-solid fa-clipboard-list"></i> Manage Queue
                         </button>
                     </div>
@@ -399,13 +395,12 @@
             });
         }
 
-        // QUEUE MANAGEMENT
+        // QUEUE MANAGEMENT LOGIC
         function openQueueManager(docId, docName) {
             currentManagingDoctorId = docId;
             document.getElementById('doctors-grid').classList.add('hidden');
             document.getElementById('queue-manager').classList.remove('hidden');
-            const display_name = docName.startsWith('Dr.') ? docName : `Dr. ${docName}`;
-            document.getElementById('qm-doc-name').innerText = `Queue: ${display_name}`;
+            document.getElementById('qm-doc-name').innerText = `Queue: ${docName}`;
             
             document.getElementById('qm-current-token').innerText = '...';
             document.getElementById('qm-next-token').innerText = '...';
@@ -453,17 +448,19 @@
         async function advanceSpecificQueue() {
             if(!currentManagingDoctorId) return;
             try {
+                // Safely advance the queue for the specific doctor managed
                 const res = await apiPost(`/doctor/${currentManagingDoctorId}/next-patient`, {});
                 const data = await res.json();
+                
                 if(res.ok) {
                     Swal.fire({icon: 'success', title: 'Queue Advanced', text: data.message, timer: 1000, showConfirmButton: false});
                     loadSpecificQueue(currentManagingDoctorId);
                     loadDashboardData();
                 } else {
-                    Swal.fire({icon: 'info', title: 'Queue Empty', text: data.detail || data.message});
+                    Swal.fire({icon: 'info', title: 'Queue Action', text: data.detail || data.message});
                 }
             } catch(e) {
-                Swal.fire({icon: 'error', title: 'Error advancing queue'});
+                Swal.fire({icon: 'error', title: 'Network Error advancing queue'});
             }
         }
 
@@ -511,8 +508,9 @@
                 if (res.ok) {
                     Swal.fire({icon: 'success', title: 'Success!', text: data.message, timer: 2000});
                     closeAddDoctorModal();
-                    loadDashboardData(); 
+                    loadDashboardData(); // Instantly refresh the UI to show the new doctor
                 } else {
+                    // Show exact validation/duplicate error from backend
                     Swal.fire({icon: 'error', title: 'Action Failed', text: data.detail || 'An error occurred'});
                 }
             } catch (err) {
@@ -529,7 +527,8 @@
             const prevVal = sel.value;
             sel.innerHTML = '<option value="">-- Choose Doctor --</option>';
             doctors.forEach(d => {
-                sel.innerHTML += `<option value="${d.id}">${d.name.startsWith('Dr.') ? d.name : 'Dr. ' + d.name}</option>`;
+                const displayName = d.name.toLowerCase().startsWith('dr') ? d.name : `Dr. ${d.name}`;
+                sel.innerHTML += `<option value="${d.id}">${displayName}</option>`;
             });
             if(prevVal) sel.value = prevVal; 
         }
