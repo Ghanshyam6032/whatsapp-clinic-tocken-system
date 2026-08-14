@@ -1,764 +1,1215 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Clinic Admin & Queue Management</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- SweetAlert2 -->
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <!-- FontAwesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        .hidden { display: none !important; }
-        .spinner { border: 4px solid rgba(0,0,0,0.1); width: 24px; height: 24px; border-radius: 50%; border-left-color: #ffffff; animation: spin 1s linear infinite; display: inline-block; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        /* Smooth transitions for modals */
-        .modal-enter { opacity: 0; transform: scale(0.95); }
-        .modal-enter-active { opacity: 1; transform: scale(1); transition: all 0.2s ease-out; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Clinic Token Management System</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f5f7fb;--card:#fff;--text:#172033;--muted:#6b7280;
+  --border:#e6eaf0;--blue:#2563eb;--green:#16a34a;--red:#dc2626;
+  --orange:#d97706;--shadow:0 8px 28px rgba(15,23,42,.06);--shadow-sm:0 2px 10px rgba(15,23,42,.04);--radius:18px;
+}
+*{box-sizing:border-box;margin:0;padding:0;min-width:0;} /* min-width:0 prevents flex/grid blowout */
+body{font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);overflow-x:hidden;}
+button,input,select{font:inherit;outline:none;}
+button{cursor:pointer;}
+
+/* --- LOGIN SCREEN --- */
+#login-screen{display:flex;min-height:100vh;align-items:center;justify-content:center;background:var(--bg);padding:20px;}
+.login-card{background:var(--card);padding:40px;border-radius:var(--radius);box-shadow:var(--shadow);width:100%;max-width:420px;border:1px solid var(--border);}
+.login-header{text-align:center;margin-bottom:30px;}
+.login-header .brand-icon{margin:0 auto 15px; width:56px; height:56px; font-size:26px; border-radius:14px; background:#eff6ff; color:var(--blue); display:grid; place-items:center;}
+.login-header h2{font-size:22px;}
+.login-header p{color:var(--muted);font-size:13px;margin-top:5px;}
+.form-group{margin-bottom:18px;}
+.form-group label{display:block;font-size:12px;font-weight:700;margin-bottom:6px;color:var(--text);}
+.form-control{width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:10px;font-size:14px;background:#f8fafc;transition:0.2s;}
+.form-control:focus{border-color:#9dbafc;background:#fff;box-shadow:0 0 0 3px rgba(37,99,235,0.1);}
+.btn-primary{width:100%;padding:12px;background:var(--blue);color:#fff;border:none;border-radius:10px;font-weight:700;font-size:14px;transition:0.2s;}
+.btn-primary:hover{background:#1d4ed8;}
+
+/* --- APP LAYOUT --- */
+#app-screen{display:none;min-height:100vh;width:100vw;overflow-x:hidden;}
+.app{display:flex;min-height:100vh;width:100%;max-width:100vw;}
+
+/* Sidebar */
+.sidebar{width:245px;background:#fff;border-right:1px solid var(--border);position:fixed;inset:0 auto 0 0;padding:22px 15px;z-index:50;display:flex;flex-direction:column;}
+.brand{display:flex;gap:11px;align-items:center;padding:3px 10px 28px}
+.brand-icon{width:42px;height:42px;border-radius:13px;background:#eff6ff;color:var(--blue);display:grid;place-items:center;font-size:21px;font-weight:800}
+.brand h2{font-size:16px}.brand small{color:var(--muted);font-size:11px}
+.nav{display:grid;gap:5px;flex:1;}
+.nav button{border:0;background:transparent;text-align:left;padding:12px 13px;border-radius:11px;color:#667085;font-weight:650;font-size:13px;display:flex;align-items:center;gap:10px;transition:0.2s;}
+.nav button:hover,.nav button.active{background:#eff6ff;color:var(--blue)}
+.sidebar-bottom{margin-top:auto;}
+.logout{width:100%;background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px;color:#667085;font-weight:650;transition:0.2s;}
+.logout:hover{background:#fee2e2;color:var(--red);border-color:#fecaca;}
+
+/* Main Area */
+.main{margin-left:245px;flex:1;min-width:0;display:flex;flex-direction:column;max-width:calc(100vw - 245px);}
+.header{height:74px;background:#fff;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;padding:0 28px;position:sticky;top:0;z-index:40;flex-shrink:0;}
+.clinic-title{font-size:18px;font-weight:800}.clinic-sub{font-size:11px;color:var(--muted);margin-top:2px}
+.header-right{display:flex;align-items:center;gap:18px}
+.clinic-status{display:flex;align-items:center;gap:9px;border-right:1px solid var(--border);padding-right:18px}
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 4px #dcfce7}.status-dot.off{background:var(--red);box-shadow:0 0 0 4px #fee2e2}
+.status-label{font-size:12px;font-weight:800}
+.switch{position:relative;width:47px;height:26px;display:inline-block;flex-shrink:0;}.switch input{display:none}
+.slider{position:absolute;inset:0;background:#d1d5db;border-radius:99px;transition:.3s;cursor:pointer;}.slider:before{content:"";position:absolute;width:20px;height:20px;left:3px;top:3px;background:#fff;border-radius:50%;box-shadow:0 2px 5px #0002;transition:.3s}
+.switch input:checked+.slider{background:var(--green)}.switch input:checked+.slider:before{transform:translateX(21px)}
+.profile{display:flex;align-items:center;gap:9px}.avatar{width:37px;height:37px;border-radius:50%;background:#eaf0ff;color:var(--blue);display:grid;place-items:center;font-weight:800}.profile small{display:block;color:var(--muted);font-size:10px}
+
+/* Content & Tabs */
+.content{padding:28px;width:100%;max-width:1500px;margin:0 auto;}
+.tab-content{display:none;animation:fadeIn 0.3s ease;}
+.tab-content.active{display:block;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(5px);}to{opacity:1;transform:translateY(0);}}
+
+.page-head{display:flex;justify-content:space-between;align-items:end;margin-bottom:22px}.page-head h1{font-size:27px}.page-head p{font-size:12px;color:var(--muted);margin-top:5px}
+.action-buttons-head{display:flex;gap:10px;}
+.btn-head{background:#fff;border:1px solid var(--border);padding:9px 13px;border-radius:10px;font-weight:650;color:#475467;transition:0.2s;font-size:13px;display:flex;align-items:center;gap:6px;}
+.btn-head:hover{background:#f8fafc;}
+.btn-head.primary{background:var(--blue);color:#fff;border:none;}
+.btn-head.primary:hover{background:#1d4ed8;}
+
+/* Dashboard Stats */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:15px;margin-bottom:24px}
+.stat{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:19px;box-shadow:var(--shadow-sm);min-width:0;}
+.stat-label{font-size:12px;color:var(--muted);font-weight:650;text-transform:uppercase;letter-spacing:0.5px;}
+.stat-value{font-size:29px;font-weight:850;margin-top:10px}.stat-note{font-size:11px;color:var(--muted);margin-top:4px}
+
+/* Doctors Section */
+.section-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:13px}.section-head h2{font-size:18px}.section-head span{font-size:11px;color:var(--muted)}
+.doctors{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:15px;margin-bottom:24px}
+.card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-sm);min-width:0;width:100%;}
+.doctor-card{padding:19px;transition:.2s;display:flex;flex-direction:column;justify-content:space-between;}
+.doctor-card:hover{transform:translateY(-3px); box-shadow:var(--shadow);}
+.doctor-top{display:flex;justify-content:space-between;gap:10px}.doctor-info{display:flex;gap:11px}.doctor-avatar{width:45px;height:45px;border-radius:13px;background:#f1f5f9;display:grid;place-items:center;font-size:21px}
+.doctor-name{font-size:14px;font-weight:800}.doctor-role{font-size:11px;color:var(--muted);margin-top:3px}
+.online{font-size:10px;font-weight:800;color:var(--green);display:flex;gap:5px;align-items:center}.online.off{color:var(--red)}.online i{width:6px;height:6px;border-radius:50%;background:currentColor}
+.metrics{display:grid;grid-template-columns:repeat(3,1fr);margin:18px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.metric{text-align:center;padding:12px 5px}.metric+.metric{border-left:1px solid var(--border)}.metric b{font-size:17px;color:var(--blue);}.metric span{display:block;font-size:9px;color:var(--muted);margin-top:3px;text-transform:uppercase;font-weight:700;}
+.doctor-actions{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-top:10px;}
+.view-btn{flex:1;border-radius:9px;padding:10px;border:0;font-size:12px;font-weight:750;background:#eff6ff;color:var(--blue);transition:0.2s;}
+.view-btn:hover{background:#dbeafe;}
+
+/* Queue Layout */
+.queue-layout{display:grid;grid-template-columns:1.55fr .9fr;gap:15px;min-width:0;}
+.queue-card,.patient-card{padding:19px;min-width:0;width:100%;}
+.selected-doctor{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;}.selected-doctor h3{font-size:16px;color:var(--text);}.selected-doctor p{font-size:11px;color:var(--muted);margin-top:3px}
+.search-box{border:1px solid var(--border);padding:9px 12px;border-radius:10px;outline:0;width:230px;font-size:13px;background:#f8fafc;transition:0.2s;}
+.search-box:focus{border-color:var(--blue);background:#fff;box-shadow:0 0 0 3px rgba(37,99,235,0.1);}
+
+/* Next Patient Card */
+.next-patient-card{margin-top:16px;padding:20px;border:1px solid var(--border);border-radius:14px;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.02);}
+.next-patient-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.next-patient-label{font-size:10px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.5px}
+.next-patient-token{font-size:28px;font-weight:900;margin-top:4px;color:var(--text);}
+.next-patient-name{font-size:15px;font-weight:800;margin-top:4px;word-break:break-word;}.next-patient-reason{font-size:12px;color:var(--muted);margin-top:4px;display:flex;align-items:center;gap:4px;}
+
+/* Action Buttons Base */
+.queue-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px;width:100%;}
+.action-btn{border:0;border-radius:10px;padding:12px 16px;font-size:13px;font-weight:800;flex:1;transition:0.2s;display:inline-flex;justify-content:center;align-items:center;}
+.accept-btn{background:#dcfce7;color:#15803d}.accept-btn:hover{background:#bbf7d0;}
+.skip-btn{background:#fff7ed;color:#c2410c}.skip-btn:hover{background:#ffedd5;}
+.cancel-btn{background:#fee2e2;color:#b91c1c}.cancel-btn:hover{background:#fecaca;}
+
+/* Skipped Section */
+.skipped-section{margin-top:22px;padding-top:18px;border-top:1px solid var(--border)}
+.skipped-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.skipped-head h3{font-size:13px}.skipped-head span{font-size:10px;color:var(--muted)}
+.skipped-patient{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 15px;border:1px solid var(--border);border-radius:10px;background:#fafbfc;margin-bottom:8px;}
+.skipped-info{min-width:0}.skipped-info b{font-size:13px;color:var(--orange);word-break:break-word;}.skipped-info p{font-size:11px;color:var(--muted);margin-top:4px}
+.recall-btn{border:0;background:#eff6ff;color:var(--blue);border-radius:8px;padding:9px 14px;font-size:11px;font-weight:800;white-space:nowrap;transition:0.2s;}
+.recall-btn:hover{background:#dbeafe;}
+
+/* Tables - Horizontal Scroll Fix */
+.table-wrap{width:100%; overflow-x:auto; margin-top:18px; border:1px solid var(--border); border-radius:12px; background:var(--card); -webkit-overflow-scrolling:touch;}
+table{width:100%; border-collapse:collapse; min-width:650px; white-space:nowrap;}
+th,td{padding:14px 16px;border-bottom:1px solid var(--border);text-align:left;font-size:13px}
+th{color:var(--muted);font-weight:700;background:#fafbfc;text-transform:uppercase;font-size:10px;letter-spacing:0.5px;}
+tr{transition:0.1s;}
+tbody tr:hover{background:#f8fafc;cursor:pointer;}
+.badge{padding:6px 10px;border-radius:99px;font-size:10px;font-weight:800;text-transform:uppercase;}
+.waiting{background:#fff7ed;color:var(--orange)}.current{background:#ecfdf3;color:#15803d}.completed{background:#f1f5f9;color:var(--muted);}.cancelled{background:#fee2e2;color:var(--red);text-decoration:line-through;}.skipped{background:#f3f4f6;color:#475467;border:1px dashed #94a3b8;}
+
+/* Profile Aside */
+.profile-box-card {background:#fff;border-radius:14px;padding:20px;border:1px solid var(--border);}
+.selected-patient-header {display:flex;align-items:center;gap:12px;padding-bottom:16px;border-bottom:1px solid var(--border);margin-bottom:16px;}
+.sel-patient-avatar {width:48px;height:48px;border-radius:12px;background:#eff6ff;color:var(--blue);display:grid;place-items:center;font-weight:800;font-size:16px;}
+.sel-patient-name {font-size:16px;font-weight:800;}
+.sel-patient-sub {font-size:12px;color:var(--muted);margin-top:3px;}
+.patient-stats-grid {display:grid;grid-template-columns:repeat(3, 1fr);gap:15px;margin-bottom:20px;}
+.p-stat-item b {display:block;font-size:15px;color:var(--text);font-weight:800;}
+.p-stat-item span {font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700;margin-top:2px;display:block;}
+
+/* Filter Row */
+.filter-row{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;}
+.filter-row .form-control{width:auto;flex:1;min-width:150px;}
+
+/* Toast */
+.toast{position:fixed;right:22px;bottom:22px;background:#172033;color:#fff;padding:14px 20px;border-radius:11px;font-size:13px;font-weight:600;opacity:0;transform:translateY(15px);pointer-events:none;transition:.3s;z-index:10000;display:flex;align-items:center;gap:10px;box-shadow:0 10px 30px rgba(0,0,0,0.2);}
+.toast.show{opacity:1;transform:none}
+.toast.error{background:var(--red);}
+
+/* Modals */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,0.6);backdrop-filter:blur(3px);z-index:9999;align-items:center;justify-content:center;padding:15px;}
+.modal{background:var(--card);border-radius:var(--radius);width:100%;max-width:520px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);animation:modalIn 0.3s ease;display:flex;flex-direction:column;max-height:90vh;}
+@keyframes modalIn{from{transform:scale(0.95);opacity:0;}to{transform:scale(1);opacity:1;}}
+.modal-header{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+.modal-header h2{font-size:18px;}
+.close-btn{background:none;border:none;font-size:26px;color:var(--muted);line-height:1;width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:0.2s;}
+.close-btn:hover{background:#f1f5f9;color:var(--text);}
+.modal-body{padding:24px;overflow-y:auto;}
+.modal-footer{padding:20px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px;background:#f8fafc;border-radius:0 0 var(--radius) var(--radius);}
+
+/* --- MOBILE RESPONSIVE OPTIMIZATION --- */
+.hide-mobile { display: inline-block; }
+@media(max-width: 992px){
+  .stats, .doctors{grid-template-columns:repeat(2,1fr)}
+  .queue-layout{grid-template-columns:1fr}
+}
+@media(max-width: 760px){
+  .hide-mobile { display: none !important; }
+  
+  /* Bottom Navigation - Fixed to bottom */
+  .sidebar{flex-direction:row;justify-content:space-around;align-items:center;bottom:0;top:auto;width:100%;height:70px;padding:0;z-index:900;border-right:none;border-top:1px solid var(--border);padding-bottom:env(safe-area-inset-bottom);background:rgba(255,255,255,0.95);backdrop-filter:blur(10px);box-shadow:0 -4px 15px rgba(0,0,0,0.05);}
+  .brand, .sidebar-bottom{display:none;}
+  .nav{display:flex;flex-direction:row;width:100%;height:100%;gap:0;}
+  .nav button{flex-direction:column;justify-content:center;gap:4px;flex:1;padding:6px;border-radius:0;font-size:10px;font-weight:700;color:#94a3b8;}
+  .nav button.active{background:transparent;color:var(--blue);border-top:3px solid var(--blue);}
+  .nav button .icon{font-size:22px !important;margin-bottom:2px;}
+  
+  /* Main Container */
+  .main{margin-left:0; max-width:100vw;}
+  .header{padding:0 15px;height:auto;min-height:65px;flex-wrap:wrap;padding-top:10px;padding-bottom:10px;gap:10px;box-shadow:0 2px 10px rgba(0,0,0,0.02);}
+  .clinic-sub,.profile-info{display:none}
+  .clinic-status{border:0;padding:0;}
+  .header-right{width:100%;justify-content:space-between;border-top:1px solid var(--border);padding-top:10px;}
+  
+  /* Content Adjustments */
+  .content{padding:15px; padding-bottom:100px;} /* Extra padding for bottom nav */
+  .page-head{flex-direction:column;align-items:flex-start;gap:12px;margin-bottom:20px;}
+  .page-head h1{font-size:22px}
+  
+  /* Dashboard Grids */
+  .stats { grid-template-columns: repeat(2, 1fr); gap:12px; }
+  .stat { padding: 15px; }
+  .stat-value { font-size: 24px; }
+  .doctors, .queue-layout{grid-template-columns:1fr; min-width:0; width:100%;}
+  
+  /* Queue Specifics */
+  .search-box { width: 100%; }
+  .queue-card, .patient-card { padding: 15px; }
+  
+  /* WIDE BUTTONS FIX */
+  .queue-actions{flex-direction:column; width:100%; gap:12px; margin-top:20px;}
+  .action-btn{width:100%; font-size:15px; padding:15px; border-radius:12px;}
+  
+  /* Current Token Resize */
+  #current-token-box > div:first-child { font-size: 48px !important; }
+  
+  /* Skipped Patients Adjust */
+  .skipped-patient { flex-direction:column; align-items:flex-start; gap:12px; padding:15px; background:#fff; border-radius:12px; border:1px solid var(--border); box-shadow:var(--shadow-sm); }
+  .skipped-patient .recall-btn { width: 100%; padding: 14px; font-size: 14px; }
+  
+  /* Filters */
+  .filter-row{flex-direction:column;gap:12px;}
+  .filter-row .form-control, .filter-row .btn-primary{width:100%; min-width:100%;}
+  
+  /* Modals */
+  .modal{margin:15px;width:calc(100% - 30px);max-height:calc(100vh - 30px);border-radius:18px;}
+  .modal-header, .modal-footer{padding:15px 20px;}
+  .modal-body{padding:20px;}
+}
+</style>
 </head>
-<body class="bg-gray-50 font-sans text-gray-800 antialiased overflow-hidden h-screen flex flex-col">
+<body>
 
-    <!-- ========================================== -->
-    <!-- LOGIN SCREEN -->
-    <!-- ========================================== -->
-    <div id="login-screen" class="absolute inset-0 z-50 flex items-center justify-center bg-slate-900 bg-opacity-95">
-        <div class="bg-white p-10 rounded-2xl shadow-2xl w-full max-w-md transform transition-all">
-            <div class="text-center mb-8">
-                <div class="bg-blue-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <i class="fa-solid fa-hospital-user text-4xl text-blue-600"></i>
-                </div>
-                <h1 class="text-3xl font-extrabold text-gray-900">Clinic Portal</h1>
-                <p class="text-gray-500 text-sm mt-2">Secure System Administration</p>
-            </div>
-            <form id="login-form" class="space-y-6">
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Username / Email</label>
-                    <div class="relative">
-                        <i class="fa-solid fa-user absolute left-4 top-3.5 text-gray-400"></i>
-                        <input type="text" id="username" class="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" required placeholder="admin">
-                    </div>
-                </div>
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Password</label>
-                    <div class="relative">
-                        <i class="fa-solid fa-lock absolute left-4 top-3.5 text-gray-400"></i>
-                        <input type="password" id="password" class="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" required placeholder="••••••••">
-                    </div>
-                </div>
-                <button type="submit" id="login-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl shadow-lg transition duration-200 flex items-center justify-center">
-                    <span>Secure Login</span>
-                </button>
-            </form>
-        </div>
+<div id="toast" class="toast"></div>
+
+<!-- LOGIN SCREEN -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-header">
+      <div class="brand-icon">✚</div>
+      <h2>Clinic Portal</h2>
+      <p>Secure Admin Access</p>
     </div>
+    <form id="login-form">
+      <div class="form-group">
+        <label>Admin Username</label>
+        <input type="text" id="email" class="form-control" required placeholder="admin@clinic.com">
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="password" class="form-control" required placeholder="••••••••">
+      </div>
+      <button type="submit" class="btn-primary" style="margin-top:10px;">Sign In</button>
+    </form>
+  </div>
+</div>
 
-    <!-- ========================================== -->
-    <!-- MAIN APPLICATION LAYOUT -->
-    <!-- ========================================== -->
-    <div id="main-dashboard" class="hidden flex h-full w-full">
+<!-- MAIN APP SCREEN -->
+<div id="app-screen">
+  <div class="app">
+    
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+      <div class="brand"><div class="brand-icon">✚</div><div><h2 id="sidebar-clinic-name">ABC Clinic</h2><small>Admin Portal</small></div></div>
+      <nav class="nav">
+        <button class="active" onclick="switchTab('dashboard')"><span class="icon" style="font-size:18px;">⌂</span> <span class="nav-text">Dashboard</span></button>
+        <button onclick="switchTab('queue')"><span class="icon" style="font-size:18px;">🎫</span> <span class="nav-text">Queue</span></button>
+        <button onclick="switchTab('patients')"><span class="icon" style="font-size:18px;">♙</span> <span class="nav-text">Patients</span></button>
+        <button onclick="switchTab('history')"><span class="icon" style="font-size:18px;">📋</span> <span class="nav-text">History</span></button>
+      </nav>
+      <div class="sidebar-bottom"><button class="logout" onclick="logout()">↪ Logout</button></div>
+    </aside>
+
+    <main class="main">
+      <!-- HEADER -->
+      <header class="header">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div><div class="clinic-title" id="header-date">Today</div><div class="clinic-sub">Clinic Token Management</div></div>
+        </div>
+        <div class="header-right">
+          <button class="btn-head" onclick="refreshCurrentData()" style="padding:6px 12px; margin-right:5px; border:1px solid var(--border); background:var(--bg-body); border-radius:8px;" title="Refresh Data">
+             <span style="font-size: 16px;">↻</span> <span class="hide-mobile" style="margin-left: 4px;">Refresh</span>
+          </button>
+          
+          <div class="clinic-status">
+            <span class="status-dot" id="clinicDot"></span><span class="status-label" id="clinicLabel">LOADING</span>
+            <label class="switch" style="margin-left:8px;"><input type="checkbox" id="clinic-toggle-cb" onchange="toggleClinicStatus(this.checked)"><span class="slider"></span></label>
+          </div>
+          <div class="profile">
+            <div class="avatar" id="admin-initial">A</div>
+            <div class="profile-info"><b id="admin-name">Admin</b><small>Administrator</small></div>
+          </div>
+        </div>
+      </header>
+
+      <section class="content">
         
-        <!-- SIDEBAR -->
-        <aside class="w-64 bg-slate-800 text-white flex flex-col shadow-2xl z-20 flex-shrink-0 transition-all duration-300" id="sidebar">
-            <div class="p-6 flex items-center gap-3 border-b border-slate-700">
-                <i class="fa-solid fa-kit-medical text-3xl text-blue-400"></i>
-                <div>
-                    <h2 class="text-xl font-bold tracking-wide">CareSync</h2>
-                    <p class="text-xs text-slate-400">Admin Dashboard</p>
-                </div>
-            </div>
-            
-            <nav class="flex-1 py-6 px-4 space-y-2 overflow-y-auto">
-                <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4 px-2">Main Menu</p>
-                
-                <button onclick="switchTab('dashboard')" id="tab-dashboard" class="w-full flex items-center gap-4 px-4 py-3 bg-blue-600 text-white rounded-xl shadow transition">
-                    <i class="fa-solid fa-chart-pie w-5 text-center"></i>
-                    <span class="font-medium">Overview</span>
-                </button>
-                
-                <button onclick="switchTab('patients')" id="tab-patients" class="w-full flex items-center gap-4 px-4 py-3 text-slate-300 hover:bg-slate-700 rounded-xl transition">
-                    <i class="fa-solid fa-users w-5 text-center"></i>
-                    <span class="font-medium">Patient Directory</span>
-                </button>
+        <!-- DASHBOARD TAB -->
+        <div id="tab-dashboard" class="tab-content active">
+          <div class="page-head">
+            <div><h1 id="welcome-text">Dashboard Overview</h1><p>Real-time clinic metrics and doctor statuses</p></div>
+            <button class="btn-head primary" onclick="openAddDoctorModal()">+ Add Doctor</button>
+          </div>
 
-                <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mt-8 mb-4 px-2">System Controls</p>
-                
-                <div class="px-2">
-                    <label class="flex items-center cursor-pointer justify-between bg-slate-700 px-4 py-3 rounded-xl hover:bg-slate-600 transition">
-                        <span class="text-sm font-medium text-slate-200 flex items-center gap-2"><i class="fa-solid fa-power-off text-green-400"></i> Clinic Online</span>
-                        <div class="relative">
-                            <input type="checkbox" id="clinic-status-toggle" class="sr-only" onchange="toggleClinicStatus(this)" checked>
-                            <div class="block bg-slate-500 w-10 h-6 rounded-full"></div>
-                            <div class="dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition transform translate-x-4 bg-green-500"></div>
-                        </div>
-                    </label>
-                </div>
-            </nav>
+          <div class="stats">
+            <div class="stat"><div class="stat-label">Total Tokens</div><div class="stat-value" id="dash-total">-</div><div class="stat-note">Generated today</div></div>
+            <div class="stat"><div class="stat-label" style="color:var(--orange)">Waiting</div><div class="stat-value" id="dash-waiting" style="color:var(--orange)">-</div><div class="stat-note">Currently in queues</div></div>
+            <div class="stat"><div class="stat-label" style="color:var(--green)">Completed</div><div class="stat-value" id="dash-completed" style="color:var(--green)">-</div><div class="stat-note">Successfully finished</div></div>
+            <div class="stat"><div class="stat-label" style="color:var(--red)">Cancelled</div><div class="stat-value" id="dash-cancelled" style="color:var(--red)">-</div><div class="stat-note">Dropped tokens</div></div>
+          </div>
 
-            <div class="p-4 border-t border-slate-700">
-                <div class="flex items-center gap-3 mb-4 px-2">
-                    <div class="w-10 h-10 rounded-full bg-slate-600 flex items-center justify-center text-lg font-bold border-2 border-slate-500">
-                        A
-                    </div>
-                    <div>
-                        <p class="text-sm font-bold">System Admin</p>
-                        <p class="text-xs text-green-400">● Online</p>
-                    </div>
-                </div>
-                <button onclick="logout()" class="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white rounded-lg transition font-medium">
-                    <i class="fa-solid fa-arrow-right-from-bracket"></i> Logout
-                </button>
-            </div>
-        </aside>
-
-        <!-- MAIN CONTENT AREA -->
-        <main class="flex-1 flex flex-col min-w-0 bg-slate-50 relative h-full">
-            
-            <!-- TOP NAVBAR -->
-            <header class="bg-white border-b border-gray-200 py-4 px-6 flex justify-between items-center shadow-sm z-10 flex-shrink-0">
-                <div class="flex items-center gap-4">
-                    <button class="md:hidden text-gray-500 hover:text-gray-700 text-xl"><i class="fa-solid fa-bars"></i></button>
-                    <h2 id="topbar-title" class="text-2xl font-bold text-gray-800">Overview</h2>
-                </div>
-                <div class="flex items-center gap-4">
-                    <div id="live-clock" class="hidden sm:block text-sm font-semibold text-gray-500 bg-gray-100 px-4 py-2 rounded-full border border-gray-200">
-                        <i class="fa-regular fa-clock mr-1"></i> <span id="time-display">00:00 AM</span>
-                    </div>
-                    <button onclick="loadDashboardData()" class="text-blue-600 bg-blue-50 w-10 h-10 rounded-full hover:bg-blue-100 transition flex items-center justify-center shadow-sm">
-                        <i class="fa-solid fa-rotate-right"></i>
-                    </button>
-                </div>
-            </header>
-
-            <!-- SCROLLABLE CONTENT -->
-            <div class="flex-1 overflow-y-auto p-4 md:p-8">
-
-                <!-- ================================== -->
-                <!-- VIEW 1: DASHBOARD OVERVIEW -->
-                <!-- ================================== -->
-                <div id="view-dashboard" class="space-y-8 fade-in block">
-                    
-                    <!-- KPI Cards -->
-                    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-                        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
-                            <div class="w-14 h-14 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-2xl"><i class="fa-solid fa-ticket"></i></div>
-                            <div>
-                                <p class="text-sm font-semibold text-gray-500">Total Tokens</p>
-                                <p class="text-3xl font-black text-gray-800" id="kpi-total">0</p>
-                            </div>
-                        </div>
-                        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
-                            <div class="w-14 h-14 rounded-full bg-orange-50 text-orange-500 flex items-center justify-center text-2xl"><i class="fa-solid fa-hourglass-half"></i></div>
-                            <div>
-                                <p class="text-sm font-semibold text-gray-500">Waiting</p>
-                                <p class="text-3xl font-black text-gray-800" id="kpi-waiting">0</p>
-                            </div>
-                        </div>
-                        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
-                            <div class="w-14 h-14 rounded-full bg-green-50 text-green-600 flex items-center justify-center text-2xl"><i class="fa-solid fa-check-double"></i></div>
-                            <div>
-                                <p class="text-sm font-semibold text-gray-500">Completed</p>
-                                <p class="text-3xl font-black text-gray-800" id="kpi-completed">0</p>
-                            </div>
-                        </div>
-                        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
-                            <div class="w-14 h-14 rounded-full bg-red-50 text-red-500 flex items-center justify-center text-2xl"><i class="fa-solid fa-xmark"></i></div>
-                            <div>
-                                <p class="text-sm font-semibold text-gray-500">Cancelled</p>
-                                <p class="text-3xl font-black text-gray-800" id="kpi-cancelled">0</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Doctors & Actions -->
-                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                        <div class="flex flex-col md:flex-row justify-between items-center gap-4 mb-6 pb-4 border-b">
-                            <div>
-                                <h3 class="text-xl font-bold text-gray-800">Active Doctors Setup</h3>
-                                <p class="text-sm text-gray-500 mt-1">Manage doctor availability and queues</p>
-                            </div>
-                            <div class="flex gap-3 w-full md:w-auto">
-                                <button onclick="openModal('add-doctor-modal')" class="flex-1 md:flex-none bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 px-4 py-2.5 rounded-xl font-bold transition flex items-center justify-center gap-2">
-                                    <i class="fa-solid fa-user-doctor"></i> Add Doctor
-                                </button>
-                                <button onclick="openModal('walkin-modal')" class="flex-1 md:flex-none bg-blue-600 text-white hover:bg-blue-700 px-5 py-2.5 rounded-xl font-bold shadow-md transition flex items-center justify-center gap-2">
-                                    <i class="fa-solid fa-plus"></i> Walk-in Token
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- Doctors Grid -->
-                        <div id="doctors-list-container" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                            <!-- Populated via JS -->
-                        </div>
-                    </div>
-                </div>
-
-                <!-- ================================== -->
-                <!-- VIEW 2: SINGLE DOCTOR QUEUE -->
-                <!-- ================================== -->
-                <div id="view-queue" class="hidden h-full flex flex-col fade-in">
-                    <div class="flex items-center justify-between bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6">
-                        <button onclick="closeQueueView()" class="text-gray-500 hover:text-blue-600 font-semibold px-3 py-2 rounded-lg hover:bg-blue-50 transition flex items-center gap-2">
-                            <i class="fa-solid fa-arrow-left"></i> Back to Dashboard
-                        </button>
-                        <h2 id="queue-doc-name" class="text-xl font-bold text-gray-800">Dr. Name Queue</h2>
-                        <button onclick="advanceQueue()" class="bg-green-500 hover:bg-green-600 text-white px-5 py-2 rounded-lg font-bold shadow transition flex items-center gap-2">
-                            <i class="fa-solid fa-forward-step"></i> Next Patient
-                        </button>
-                    </div>
-
-                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1">
-                        <!-- Current Patient -->
-                        <div class="lg:col-span-1 bg-white rounded-2xl shadow-sm border-t-4 border-blue-500 p-6 text-center flex flex-col justify-center">
-                            <p class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Current Patient</p>
-                            <div id="q-curr-token" class="text-7xl font-black text-gray-800 mb-4">-</div>
-                            <h3 id="q-curr-name" class="text-2xl font-bold text-blue-600 mb-2">Waiting...</h3>
-                            <p id="q-curr-reason" class="text-gray-500 bg-gray-50 inline-block px-4 py-2 rounded-full mx-auto text-sm">--</p>
-                            
-                            <div class="mt-8 pt-6 border-t border-gray-100 flex gap-3 justify-center">
-                                <button onclick="markCurrentComplete()" class="flex-1 bg-gray-100 hover:bg-green-100 text-gray-600 hover:text-green-600 py-2 rounded-lg font-semibold transition text-sm">
-                                    <i class="fa-solid fa-check mr-1"></i> Complete
-                                </button>
-                                <button onclick="advanceQueue()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-bold shadow-md transition text-sm">
-                                    Call Next <i class="fa-solid fa-arrow-right ml-1"></i>
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- Waiting List -->
-                        <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col">
-                            <div class="flex justify-between items-center mb-6">
-                                <h3 class="text-lg font-bold text-gray-800">Waiting Line</h3>
-                                <span class="bg-orange-100 text-orange-600 text-xs font-bold px-3 py-1 rounded-full"><span id="q-wait-count">0</span> In Queue</span>
-                            </div>
-                            
-                            <!-- Up Next Highlight -->
-                            <div class="bg-orange-50 border border-orange-100 rounded-xl p-4 flex items-center gap-4 mb-6">
-                                <div id="q-next-token" class="w-14 h-14 bg-white rounded-full flex items-center justify-center text-xl font-bold text-orange-500 shadow-sm">
-                                    -
-                                </div>
-                                <div class="flex-1">
-                                    <p class="text-xs font-bold text-orange-600 uppercase">Up Next</p>
-                                    <h4 id="q-next-name" class="text-lg font-bold text-gray-800">None</h4>
-                                    <p id="q-next-reason" class="text-sm text-gray-500">Queue is empty</p>
-                                </div>
-                            </div>
-
-                            <hr class="border-gray-100 mb-4">
-                            
-                            <!-- Skipped List (Informational) -->
-                            <div class="flex-1">
-                                <h4 class="text-sm font-bold text-gray-500 mb-3">Recently Skipped</h4>
-                                <ul id="q-skipped-list" class="space-y-3">
-                                    <li class="text-sm text-gray-400 italic">No skipped patients</li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- ================================== -->
-                <!-- VIEW 3: PATIENTS DIRECTORY -->
-                <!-- ================================== -->
-                <div id="view-patients" class="hidden bg-white rounded-2xl shadow-sm border border-gray-100 p-6 fade-in h-full flex flex-col">
-                    <div class="flex flex-col md:flex-row justify-between gap-4 mb-6">
-                        <h2 class="text-xl font-bold text-gray-800">Patient Directory</h2>
-                        <div class="relative w-full md:w-72">
-                            <i class="fa-solid fa-search absolute left-3 top-3 text-gray-400"></i>
-                            <input type="text" id="patient-search" placeholder="Search by name or number..." class="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 transition text-sm">
-                        </div>
-                    </div>
-                    
-                    <div class="overflow-x-auto flex-1">
-                        <table class="w-full text-left border-collapse">
-                            <thead>
-                                <tr class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider border-b border-gray-200">
-                                    <th class="p-4 font-semibold rounded-tl-lg">ID</th>
-                                    <th class="p-4 font-semibold">Patient Name</th>
-                                    <th class="p-4 font-semibold">WhatsApp No.</th>
-                                    <th class="p-4 font-semibold">Total Visits</th>
-                                    <th class="p-4 font-semibold text-center rounded-tr-lg">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody id="patients-table-body" class="text-sm text-gray-700 divide-y divide-gray-100">
-                                <tr>
-                                    <td colspan="5" class="p-8 text-center text-gray-500">
-                                        <i class="fa-solid fa-spinner fa-spin text-2xl mb-2 text-blue-500"></i><br>Loading patients...
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-            </div>
-        </main>
-    </div>
-
-    <!-- ========================================== -->
-    <!-- MODALS -->
-    <!-- ========================================== -->
-
-    <!-- Add Doctor Modal -->
-    <div id="add-doctor-modal" class="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-200">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform scale-95 transition-transform duration-200" id="add-doctor-content">
-            <div class="bg-indigo-600 px-6 py-4 flex justify-between items-center">
-                <h3 class="text-white font-bold text-lg"><i class="fa-solid fa-user-doctor mr-2"></i> Add New Doctor</h3>
-                <button onclick="closeModal('add-doctor-modal')" class="text-indigo-200 hover:text-white transition"><i class="fa-solid fa-xmark text-xl"></i></button>
-            </div>
-            <form id="add-doctor-form" class="p-6 space-y-4">
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-1">Doctor Name</label>
-                    <input type="text" id="new-doc-name" class="w-full px-4 py-2 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" required placeholder="e.g. Dr. Pankaj">
-                </div>
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-1">Email (Login ID)</label>
-                    <input type="email" id="new-doc-email" class="w-full px-4 py-2 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" required placeholder="dr.pankaj@clinic.com">
-                </div>
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-1">Account Password</label>
-                    <input type="password" id="new-doc-password" class="w-full px-4 py-2 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" required placeholder="Min 6 characters">
-                </div>
-                <div class="mt-6 pt-4 border-t border-gray-100 flex justify-end gap-3">
-                    <button type="button" onclick="closeModal('add-doctor-modal')" class="px-5 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition">Cancel</button>
-                    <button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg shadow transition flex items-center">
-                        Save Doctor
-                    </button>
-                </div>
-            </form>
+          <div class="section-head"><h2>👨‍⚕️ Active Doctors</h2><span>Click “Manage Queue” to control flow</span></div>
+          <div class="doctors" id="doctors-container">
+            <div class="empty" style="grid-column: 1/-1;">Loading doctors...</div>
+          </div>
         </div>
-    </div>
 
-    <!-- Walk-in Token Modal -->
-    <div id="walkin-modal" class="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-200">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden transform scale-95 transition-transform duration-200" id="walkin-content">
-            <div class="bg-blue-600 px-6 py-4 flex justify-between items-center">
-                <h3 class="text-white font-bold text-lg"><i class="fa-solid fa-ticket mr-2"></i> Issue Walk-in Token</h3>
-                <button onclick="closeModal('walkin-modal')" class="text-blue-200 hover:text-white transition"><i class="fa-solid fa-xmark text-xl"></i></button>
+        <!-- QUEUE TAB -->
+        <div id="tab-queue" class="tab-content">
+          <div class="page-head">
+            <div><h1 id="mainQueueTitle">Doctor-Specific Patient Queue</h1><p id="mainQueueSub">Selected doctor: Not selected</p></div>
+            <button class="btn-head primary" onclick="openWalkinModal()">+ Add Walk-in</button>
+          </div>
+
+          <div id="queue-empty-state" class="card" style="text-align:center; padding:60px 20px;">
+            <div style="font-size:40px; margin-bottom:15px;">👨‍⚕️</div>
+            <h2>No Doctor Selected</h2>
+            <p class="text-muted" style="margin-top:8px; margin-bottom:20px;">Please select a doctor from the Dashboard to manage their queue.</p>
+            <button class="btn-head" style="margin:0 auto;" onclick="switchTab('dashboard')">Go to Dashboard</button>
+          </div>
+
+          <div id="queue-content-wrapper" style="display:none;">
+            <div class="queue-layout">
+              <!-- Left Column -->
+              <section class="card queue-card">
+                <div class="selected-doctor">
+                  <div><h3 id="queueDoctor">Doctor Name</h3><p id="queueSummary">Loading stats...</p></div>
+                  <input class="search-box" id="patientSearch" placeholder="Search patient...">
+                </div>
+
+                <div class="next-patient-card" id="nextPatientCard"></div>
+
+                <div class="skipped-section" id="skippedSection">
+                  <div class="skipped-head"><h3>⏭️ Skipped Patients</h3><span>Can be recalled anytime</span></div>
+                  <div id="skippedPatients"></div>
+                </div>
+
+                <div class="table-wrap">
+                  <table>
+                    <thead><tr><th>Token</th><th>Patient</th><th>Mobile</th><th>Reason</th><th>Status</th></tr></thead>
+                    <tbody id="queue-table-body"></tbody>
+                  </table>
+                </div>
+              </section>
+
+              <!-- Right Column -->
+              <aside style="display:flex; flex-direction:column; gap:15px;">
+                <!-- Large Current Token Box -->
+                <div class="card" style="padding:26px; text-align:center; border-radius:18px; box-shadow: 0 4px 15px rgba(0,0,0,0.03);">
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                    <div style="display:flex; align-items:center; gap:6px; font-weight:700; font-size:13px; color:var(--text);">
+                      <div class="status-dot" style="width:10px; height:10px; background: var(--red); box-shadow: 0 0 0 4px #fee2e2;"></div> Current Token
+                    </div>
+                    <span style="font-size:11px; color:var(--muted);">Undergoing treatment</span>
+                  </div>
+                  
+                  <div id="current-token-box"></div>
+                </div>
+
+                <div class="profile-box-card">
+                  <div class="section-head" style="margin-bottom:14px;">
+                    <h2>Selected Patient</h2>
+                    <span style="font-size:10px; color:var(--muted); text-transform:uppercase; font-weight:700;">Patient profile</span>
+                  </div>
+                  <div id="queue-profile-box">
+                    <div class="empty" style="padding:30px 0;">Select a patient from the queue table.</div>
+                  </div>
+                </div>
+              </aside>
             </div>
-            <form id="walkin-form" class="p-6 space-y-4">
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="col-span-2">
-                        <label class="block text-sm font-semibold text-gray-700 mb-1">Select Doctor *</label>
-                        <select id="wi-doctor" class="w-full px-4 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required>
-                            <option value="">-- Choose Available Doctor --</option>
-                        </select>
-                    </div>
-                    <div class="col-span-2">
-                        <label class="block text-sm font-semibold text-gray-700 mb-1">Patient Name *</label>
-                        <input type="text" id="wi-name" class="w-full px-4 py-2 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required placeholder="Full Name">
-                    </div>
-                    <div class="col-span-2">
-                        <label class="block text-sm font-semibold text-gray-700 mb-1">WhatsApp Number *</label>
-                        <div class="relative">
-                            <span class="absolute left-4 top-2.5 text-gray-500 font-bold">+91</span>
-                            <input type="text" id="wi-whatsapp" class="w-full pl-12 pr-4 py-2 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required placeholder="9876543210">
-                        </div>
-                    </div>
-                    <div class="col-span-2">
-                        <label class="block text-sm font-semibold text-gray-700 mb-1">Visit Reason *</label>
-                        <input type="text" id="wi-reason" class="w-full px-4 py-2 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required placeholder="Fever, Routine checkup...">
-                    </div>
-                </div>
-                <div class="mt-6 pt-4 border-t border-gray-100 flex justify-end gap-3">
-                    <button type="button" onclick="closeModal('walkin-modal')" class="px-5 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition">Cancel</button>
-                    <button type="submit" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-md transition flex items-center">
-                        Generate Token
-                    </button>
-                </div>
-            </form>
+          </div>
         </div>
+
+        <!-- PATIENTS TAB -->
+        <div id="tab-patients" class="tab-content">
+          <div class="page-head">
+            <div><h1>Patient Directory</h1><p>Search and view patient histories</p></div>
+          </div>
+
+          <div class="stats" style="margin-bottom:20px;">
+            <div class="stat"><div class="stat-label">Total Patients</div><div class="stat-value" id="sum-tot-patients">-</div></div>
+            <div class="stat"><div class="stat-label" style="color:var(--blue)">New Patients</div><div class="stat-value" id="sum-new-patients" style="color:var(--blue)">-</div></div>
+            <div class="stat"><div class="stat-label" style="color:var(--green)">Returning</div><div class="stat-value" id="sum-ret-patients" style="color:var(--green)">-</div></div>
+            <div class="stat"><div class="stat-label">Total Visits</div><div class="stat-value" id="sum-tot-visits">-</div></div>
+          </div>
+
+          <div class="card">
+            <div class="filter-row">
+              <input type="text" id="patient-search" class="form-control" placeholder="Search by name or mobile...">
+              <select id="patient-date-filter" class="form-control" onchange="handlePatientDateFilter()">
+                  <option value="ALL">All Time</option>
+                  <option value="TODAY">Today</option>
+                  <option value="WEEK">This Week</option>
+                  <option value="MONTH">This Month</option>
+                  <option value="CUSTOM">Custom Range</option>
+              </select>
+              <input type="date" id="patient-start-date" class="form-control" style="display:none;" onchange="searchPatients()">
+              <input type="date" id="patient-end-date" class="form-control" style="display:none;" onchange="searchPatients()">
+              <button class="btn-primary" style="width:auto; padding:12px 24px;" onclick="searchPatients()">Search</button>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Patient Name</th><th>Mobile</th><th>Age/Gender</th><th>Total Visits</th><th>First Visit</th><th>Last Visit</th></tr></thead>
+                <tbody id="patients-table-body">
+                  <tr><td colspan="6"><div class="empty">Search or load patients...</div></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- HISTORY TAB -->
+        <div id="tab-history" class="tab-content">
+          <div class="page-head">
+            <div><h1>Token History</h1><p>Daily breakdown of all tokens</p></div>
+          </div>
+          <div class="card">
+            <div class="filter-row">
+              <input type="date" id="history-date" class="form-control">
+              <select id="history-doctor" class="form-control">
+                  <option value="ALL">All Doctors</option>
+              </select>
+              <select id="history-filter" class="form-control">
+                  <option value="ALL">All Statuses</option>
+                  <option value="WAITING">Waiting</option>
+                  <option value="CURRENT">Current</option>
+                  <option value="COMPLETED">Completed</option>
+                  <option value="SKIPPED">Skipped</option>
+                  <option value="CANCELLED">Cancelled</option>
+              </select>
+              <button class="btn-primary" style="width:auto; padding:12px 24px;" onclick="loadTokenHistory()">Filter History</button>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Token</th><th>Patient Name</th><th>Doctor</th><th>Reason</th><th>Status</th></tr></thead>
+                <tbody id="history-table-body">
+                  <tr><td colspan="5"><div class="empty">Select a date to view tokens...</div></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </section>
+    </main>
+  </div>
+</div>
+
+<!-- MODALS -->
+
+<!-- Walk-in Modal -->
+<div class="modal-overlay" id="walkin-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>✚ Add Walk-in Patient</h2>
+      <button class="close-btn" onclick="closeWalkinModal()">×</button>
     </div>
+    <div class="modal-body">
+      <form id="walkin-form">
+        <div class="form-group">
+            <label>Select Doctor</label>
+            <select id="walkin-doctor" class="form-control" required></select>
+        </div>
+        <div class="form-group">
+            <label>WhatsApp / Mobile Number</label>
+            <input type="tel" id="walkin-phone" class="form-control" placeholder="e.g. 919876543210" required>
+        </div>
+        <div class="form-group">
+            <label>Full Name</label>
+            <input type="text" id="walkin-name" class="form-control" placeholder="Patient Name" required>
+        </div>
+        <div style="display:flex; gap:15px;">
+            <div class="form-group" style="flex:1;">
+                <label>Age</label>
+                <input type="number" id="walkin-age" class="form-control" min="0" max="120" placeholder="e.g. 25" required>
+            </div>
+            <div class="form-group" style="flex:1;">
+                <label>Gender</label>
+                <select id="walkin-gender" class="form-control" required>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+            <label>Reason for Visit</label>
+            <input type="text" id="walkin-reason" class="form-control" placeholder="e.g. Fever, Checkup" required>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-head" onclick="closeWalkinModal()">Cancel</button>
+      <button class="btn-primary" style="width:auto; padding:10px 20px;" onclick="document.getElementById('walkin-form').requestSubmit()">Generate Token</button>
+    </div>
+  </div>
+</div>
 
+<!-- Add Doctor Modal -->
+<div class="modal-overlay" id="add-doctor-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>👨‍⚕️ Add New Doctor</h2>
+      <button class="close-btn" onclick="closeAddDoctorModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <form id="add-doctor-form">
+        <div class="form-group">
+            <label>Doctor Name</label>
+            <input type="text" id="doc-name" class="form-control" placeholder="e.g. Rajesh Sharma" required>
+        </div>
+        <div class="form-group">
+            <label>Email (Unique Login ID)</label>
+            <input type="email" id="doc-email" class="form-control" placeholder="dr.rajesh@clinic.com" required>
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+            <label>Password</label>
+            <input type="password" id="doc-password" class="form-control" placeholder="••••••••" required>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-head" onclick="closeAddDoctorModal()">Cancel</button>
+      <button class="btn-primary" style="width:auto; padding:10px 20px;" onclick="document.getElementById('add-doctor-form').requestSubmit()">Add Doctor</button>
+    </div>
+  </div>
+</div>
 
-    <!-- ========================================== -->
-    <!-- JAVASCRIPT LOGIC -->
-    <!-- ========================================== -->
-    <script>
-        // CORE CONFIGURATION - Perfectly matches Railway Domain
-        const API_BASE = window.location.origin;
+<!-- Patient Profile Modal -->
+<div class="modal-overlay" id="patient-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>👤 Patient Details</h2>
+      <button class="close-btn" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body" style="padding-top:10px;">
+      <div id="modal-patient-info"></div>
+      <div style="font-size:12px;font-weight:800;margin-bottom:10px;margin-top:20px;text-transform:uppercase;color:var(--muted);">Visit History Timeline</div>
+      <div id="modal-timeline-body"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/**
+ * CLINIC TOKEN MANAGEMENT SYSTEM
+ */
+
+// ONLY CHANGED THIS LINE - Uses Railway automatically
+const API_BASE = window.location.origin;
+let authToken = localStorage.getItem("token") || "";
+
+let allDoctors = [];
+let currentPatientsList = [];
+let selectedDoctorForQueue = null;
+let currentQueueTokens = [];
+
+document.getElementById('header-date').innerText = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' });
+
+// --- UTILS ---
+function showToast(message, isError=false){
+  const t=document.getElementById("toast");
+  t.innerHTML = isError ? `⚠️ ${message}` : `✓ ${message}`;
+  if(isError) t.classList.add("error"); else t.classList.remove("error");
+  t.classList.add("show");
+  clearTimeout(window.tt);
+  window.tt=setTimeout(()=>t.classList.remove("show"), 3000);
+}
+
+function getStatusBadge(status) {
+  const s = status.toUpperCase();
+  if(s === 'WAITING') return `<span class="badge waiting">● WAITING</span>`;
+  if(s === 'CURRENT') return `<span class="badge current">● CURRENT</span>`;
+  if(s === 'COMPLETED') return `<span class="badge completed">● COMPLETED</span>`;
+  if(s === 'CANCELLED') return `<span class="badge cancelled">● CANCELLED</span>`;
+  if(s === 'SKIPPED') return `<span class="badge skipped">● SKIPPED</span>`;
+  return `<span class="badge">${status}</span>`;
+}
+
+// --- GLOBAL REFRESH ---
+function refreshCurrentData() {
+    loadClinicStatus();
+    loadDashboardSummary();
+    loadDoctors();
+    if(selectedDoctorForQueue && document.getElementById('tab-queue').classList.contains('active')) {
+        loadQueueData();
+    }
+    if(document.getElementById('tab-patients').classList.contains('active')) {
+        searchPatients();
+    }
+    if(document.getElementById('tab-history').classList.contains('active')) {
+        loadTokenHistory();
+    }
+    showToast("Data refreshed successfully");
+}
+
+// --- AUTHENTICATION ---
+document.getElementById("login-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const formData = new URLSearchParams();
+    formData.append("username", document.getElementById("email").value);
+    formData.append("password", document.getElementById("password").value);
+
+    try {
+        const res = await fetch(`${API_BASE}/auth/login`, {
+            method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: formData
+        });
+        if (!res.ok) throw new Error("Invalid credentials");
+        const data = await res.json();
+        authToken = data.access_token;
+        localStorage.setItem("token", authToken);
+        initDashboard();
+        showToast("Logged in successfully");
+    } catch (err) { showToast(err.message, true); }
+});
+
+function logout() {
+    localStorage.removeItem("token");
+    location.reload();
+}
+
+async function initDashboard() {
+    if (!authToken) return;
+    try {
+        const res = await fetch(`${API_BASE}/auth/me`, { headers: { "Authorization": `Bearer ${authToken}` } });
+        if (!res.ok) throw new Error("Session expired");
+        const admin = await res.json();
+
+        document.getElementById("login-screen").style.display = "none";
+        document.getElementById("app-screen").style.display = "block";
         
-        // State
-        let adminToken = localStorage.getItem('adminToken');
-        let currentManagingDocId = null;
-        let globalDoctors = [];
+        document.getElementById("sidebar-clinic-name").innerText = admin.clinic_name;
+        document.getElementById("admin-name").innerText = admin.name;
+        document.getElementById("admin-initial").innerText = admin.name.charAt(0).toUpperCase();
 
-        // Initialization
-        window.onload = () => {
-            if (adminToken) {
-                showApp();
-                loadDashboardData();
-                startClock();
-                setInterval(loadDashboardData, 10000); // Poll every 10s
-            } else {
-                document.getElementById('login-screen').classList.remove('hidden');
-            }
-        };
+        loadClinicStatus();
+        loadDashboardSummary();
+        loadDoctors();
+    } catch (err) { logout(); }
+}
 
-        // --- AUTH LOGIC ---
-        document.getElementById('login-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const btn = document.getElementById('login-btn');
-            btn.innerHTML = '<span class="spinner"></span>';
-            btn.disabled = true;
+// --- NAVIGATION ---
+function switchTab(tabName) {
+    document.querySelectorAll(".nav button").forEach(el => el.classList.remove("active"));
+    document.querySelectorAll(".tab-content").forEach(el => el.classList.remove("active"));
 
-            const fd = new FormData();
-            fd.append('username', document.getElementById('username').value);
-            fd.append('password', document.getElementById('password').value);
+    const btns = document.querySelectorAll(".nav button");
+    for(let b of btns) { if(b.getAttribute('onclick').includes(tabName)) b.classList.add('active'); }
 
-            try {
-                const res = await fetch(`${API_BASE}/auth/login`, { method: 'POST', body: fd });
-                const data = await res.json();
-                if (res.ok) {
-                    adminToken = data.access_token;
-                    localStorage.setItem('adminToken', adminToken);
-                    Swal.fire({icon: 'success', title: 'Authenticated', timer: 1000, showConfirmButton: false});
-                    showApp();
-                    loadDashboardData();
-                } else {
-                    Swal.fire({icon: 'error', title: 'Login Failed', text: data.detail});
-                }
-            } catch (err) {
-                Swal.fire({icon: 'error', title: 'Network Error', text: 'Server unreachable.'});
-            } finally {
-                btn.innerHTML = '<span>Secure Login</span>';
-                btn.disabled = false;
-            }
+    document.getElementById(`tab-${tabName}`).classList.add("active");
+
+    if (tabName === 'dashboard') { loadDashboardSummary(); loadDoctors(); }
+    if (tabName === 'queue') renderQueueState();
+    if (tabName === 'patients') handlePatientDateFilter();
+    if (tabName === 'history') {
+        if(!document.getElementById("history-date").value) document.getElementById("history-date").valueAsDate = new Date();
+        loadTokenHistory();
+    }
+}
+
+// --- CLINIC STATUS ---
+async function loadClinicStatus() {
+    try {
+        const res = await fetch(`${API_BASE}/clinic/status`, { headers: { "Authorization": `Bearer ${authToken}` } });
+        const data = await res.json();
+        updateClinicToggleUI(data.is_online);
+    } catch (err) { console.error("Failed to load clinic status"); }
+}
+
+async function toggleClinicStatus(isOnline) {
+    try {
+        const res = await fetch(`${API_BASE}/clinic/status`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${authToken}` },
+            body: JSON.stringify({ is_online: isOnline })
+        });
+        if(res.ok) {
+            updateClinicToggleUI(isOnline);
+            showToast(`Clinic is now ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
+        }
+    } catch (err) { 
+        showToast("Failed to update status", true); 
+        document.getElementById("clinic-toggle-cb").checked = !isOnline; 
+    }
+}
+
+function updateClinicToggleUI(isOnline) {
+    document.getElementById("clinic-toggle-cb").checked = isOnline;
+    document.getElementById("clinicLabel").textContent = isOnline ? "ONLINE" : "OFFLINE";
+    document.getElementById("clinicDot").classList.toggle("off", !isOnline);
+}
+
+// --- DASHBOARD (Stats & Doctors) ---
+async function loadDashboardSummary() {
+    try {
+        const res = await fetch(`${API_BASE}/doctor/today`, { headers: { "Authorization": `Bearer ${authToken}` } });
+        if(res.ok) {
+            const data = await res.json();
+            document.getElementById("dash-total").innerText = data.total_count || 0;
+            document.getElementById("dash-waiting").innerText = data.waiting_count || 0;
+            document.getElementById("dash-completed").innerText = data.completed_count || 0;
+            document.getElementById("dash-cancelled").innerText = data.cancelled_count || 0;
+        }
+    } catch (err) {}
+}
+
+async function loadDoctors() {
+    try {
+        const res = await fetch(`${API_BASE}/doctors`, { headers: { "Authorization": `Bearer ${authToken}` } });
+        if(!res.ok) throw new Error();
+        allDoctors = await res.json();
+        
+        const histDocSelect = document.getElementById("history-doctor");
+        histDocSelect.innerHTML = '<option value="ALL">All Doctors</option>';
+        allDoctors.forEach(doc => {
+            histDocSelect.innerHTML += `<option value="${doc.id}">Dr. ${doc.name}</option>`;
         });
 
-        function logout() {
-            localStorage.removeItem('adminToken');
-            adminToken = null;
-            window.location.reload();
+        const container = document.getElementById("doctors-container");
+        container.innerHTML = "";
+        
+        if(allDoctors.length === 0){
+            container.innerHTML = `<div class="empty" style="grid-column: 1/-1;">No doctors configured.</div>`;
+            return;
         }
 
-        function showApp() {
-            document.getElementById('login-screen').classList.add('hidden');
-            document.getElementById('main-dashboard').classList.remove('hidden');
-        }
+        allDoctors.forEach(doc => {
+            fetch(`${API_BASE}/doctor/${doc.id}/queue`, { headers: { "Authorization": `Bearer ${authToken}` } })
+                .then(r => r.json())
+                .then(qData => {
+                    const isOnline = doc.is_online;
+                    const statusClass = isOnline ? "" : "off";
+                    const statusText = isOnline ? "ONLINE" : "OFFLINE";
+                    const currToken = (qData.current_token && qData.current_token.token_number) ? `#${qData.current_token.token_number}` : "—";
+                    const waiting = qData.waiting_count || 0;
+                    const completed = qData.completed_count || 0;
 
-        // --- API WRAPPERS ---
-        async function apiGet(endpoint) {
-            const res = await fetch(`${API_BASE}${endpoint}`, { headers: { 'Authorization': `Bearer ${adminToken}` }});
-            if (res.status === 401 || res.status === 403) logout();
-            return res.json();
-        }
-
-        async function apiPost(endpoint, body) {
-            const res = await fetch(`${API_BASE}${endpoint}`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
-            });
-            if (res.status === 401 || res.status === 403) logout();
-            return res;
-        }
-
-        // --- UI NAVIGATION ---
-        function switchTab(tabId) {
-            document.getElementById('view-dashboard').classList.add('hidden');
-            document.getElementById('view-queue').classList.add('hidden');
-            document.getElementById('view-patients').classList.add('hidden');
-            
-            document.getElementById(`view-${tabId}`).classList.remove('hidden');
-            document.getElementById('topbar-title').innerText = tabId === 'dashboard' ? 'Overview' : 'Patient Directory';
-
-            // Reset tab colors
-            document.getElementById('tab-dashboard').className = "w-full flex items-center gap-4 px-4 py-3 text-slate-300 hover:bg-slate-700 rounded-xl transition";
-            document.getElementById('tab-patients').className = "w-full flex items-center gap-4 px-4 py-3 text-slate-300 hover:bg-slate-700 rounded-xl transition";
-            
-            // Set active
-            document.getElementById(`tab-${tabId}`).className = "w-full flex items-center gap-4 px-4 py-3 bg-blue-600 text-white rounded-xl shadow transition";
-
-            if(tabId === 'patients') loadPatientsList();
-        }
-
-        // --- DATA LOADING ---
-        async function loadDashboardData() {
-            if(!adminToken) return;
-            try {
-                // 1. Stats
-                const stats = await apiGet('/doctor/today');
-                document.getElementById('kpi-total').innerText = stats.total_count || 0;
-                document.getElementById('kpi-waiting').innerText = stats.waiting_count || 0;
-                document.getElementById('kpi-completed').innerText = stats.completed_count || 0;
-                document.getElementById('kpi-cancelled').innerText = stats.cancelled_count || 0;
-
-                // 2. Doctors
-                const doctors = await apiGet('/doctors');
-                globalDoctors = doctors;
-                renderDoctors(doctors);
-                updateDoctorDropdown(doctors);
-
-                // 3. Queue view if active
-                if(currentManagingDocId && !document.getElementById('view-queue').classList.contains('hidden')){
-                    await renderSpecificQueue(currentManagingDocId);
-                }
-            } catch(e) { console.error(e); }
-        }
-
-        function renderDoctors(doctors) {
-            const container = document.getElementById('doctors-list-container');
-            container.innerHTML = '';
-            
-            if(doctors.length === 0){
-                container.innerHTML = `<div class="col-span-full p-8 text-center text-gray-400 bg-gray-50 rounded-xl border border-dashed">No doctors found. Please add a doctor.</div>`;
-                return;
-            }
-
-            doctors.forEach(doc => {
-                const displayName = doc.name.toLowerCase().startsWith('dr') ? doc.name : `Dr. ${doc.name}`;
-                container.innerHTML += `
-                    <div class="bg-white border border-gray-100 rounded-xl p-5 shadow-sm hover:shadow-md transition group">
-                        <div class="flex items-center gap-4 mb-4">
-                            <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center text-xl font-bold">
-                                <i class="fa-solid fa-user-doctor"></i>
-                            </div>
-                            <div>
-                                <h4 class="font-bold text-gray-800 text-lg">${displayName}</h4>
-                                <span class="text-xs font-semibold ${doc.is_online ? 'text-green-500' : 'text-red-500'}">● ${doc.is_online ? 'ONLINE' : 'OFFLINE'}</span>
-                            </div>
+                    container.innerHTML += `
+                    <article class="card doctor-card">
+                      <div class="doctor-top">
+                        <div class="doctor-info">
+                          <div class="doctor-avatar" style="width:45px;height:45px;border-radius:13px;background:#f1f5f9;display:grid;place-items:center;font-size:21px">👨‍⚕️</div>
+                          <div><div style="font-size:14px;font-weight:800;">Dr. ${doc.name}</div><div style="font-size:11px;color:var(--muted);margin-top:3px;">General Physician</div></div>
                         </div>
-                        <button onclick="openQueue(${doc.id}, '${displayName}')" class="w-full bg-slate-50 hover:bg-blue-50 text-slate-700 hover:text-blue-700 font-semibold py-2.5 rounded-lg border border-slate-200 hover:border-blue-200 transition">
-                            Manage Queue
-                        </button>
+                        <div class="online ${statusClass}" id="doc-status-${doc.id}" style="font-size:10px;font-weight:800;color:var(--green);display:flex;gap:5px;align-items:center;"><i></i>${statusText}</div>
+                      </div>
+                      <div class="metrics" style="display:grid;grid-template-columns:repeat(3,1fr);margin:18px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border)">
+                        <div style="text-align:center;padding:12px 5px;"><b style="font-size:17px;color:var(--blue);">${currToken}</b><span style="display:block;font-size:9px;color:var(--muted);margin-top:3px;text-transform:uppercase;font-weight:700;">Current</span></div>
+                        <div style="text-align:center;padding:12px 5px;border-left:1px solid var(--border);"><b style="font-size:17px;">${waiting}</b><span style="display:block;font-size:9px;color:var(--muted);margin-top:3px;text-transform:uppercase;font-weight:700;">Waiting</span></div>
+                        <div style="text-align:center;padding:12px 5px;border-left:1px solid var(--border);"><b style="font-size:17px;">${completed}</b><span style="display:block;font-size:9px;color:var(--muted);margin-top:3px;text-transform:uppercase;font-weight:700;">Completed</span></div>
+                      </div>
+                      <div style="display:flex;gap:8px;align-items:center;justify-content:space-between;margin-top:10px;">
+                        <label class="switch" title="Doctor ON/OFF">
+                          <input type="checkbox" ${isOnline ? 'checked' : ''} onchange="toggleDoctorStatus(${doc.id}, this.checked, 'Dr. ${doc.name}')">
+                          <span class="slider"></span>
+                        </label>
+                        <button class="view-btn" onclick="selectDoctorQueue(${doc.id}, 'Dr. ${doc.name}')">👥 Manage Queue</button>
+                      </div>
+                    </article>
+                    `;
+                });
+        });
+    } catch (err) { console.error("Error loading doctors"); }
+}
+
+async function toggleDoctorStatus(docId, isOnline, name) {
+    try {
+        await fetch(`${API_BASE}/doctors/${docId}/status`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${authToken}` },
+            body: JSON.stringify({ is_online: isOnline })
+        });
+        showToast(`${name} is now ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
+        const el = document.getElementById(`doc-status-${docId}`);
+        if(el) {
+            el.className = `online ${isOnline ? '' : 'off'}`;
+            el.innerHTML = `<i></i>${isOnline ? 'ONLINE' : 'OFFLINE'}`;
+        }
+    } catch(e) { showToast("Error updating status", true); }
+}
+
+// --- ADD DOCTOR MODAL ---
+function openAddDoctorModal() { document.getElementById("add-doctor-modal").style.display = "flex"; }
+function closeAddDoctorModal() { document.getElementById("add-doctor-modal").style.display = "none"; document.getElementById("add-doctor-form").reset(); }
+
+document.getElementById("add-doctor-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const name = document.getElementById("doc-name").value;
+    const email = document.getElementById("doc-email").value;
+    const password = document.getElementById("doc-password").value;
+
+    try {
+        const res = await fetch(`${API_BASE}/doctors/add`, {
+            method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${authToken}` },
+            body: JSON.stringify({ name, email, password })
+        });
+        if(!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || "Failed to add doctor");
+        }
+        showToast("Doctor added successfully!");
+        closeAddDoctorModal();
+        loadDoctors();
+    } catch(err) { showToast(err.message, true); }
+});
+
+
+// --- QUEUE MANAGEMENT ---
+function selectDoctorQueue(docId, docName) {
+    selectedDoctorForQueue = { id: docId, name: docName };
+    switchTab('queue');
+}
+
+function renderQueueState() {
+    if(!selectedDoctorForQueue) {
+        document.getElementById("queue-content-wrapper").style.display = "none";
+        document.getElementById("queue-empty-state").style.display = "block";
+        return;
+    }
+    document.getElementById("queue-empty-state").style.display = "none";
+    document.getElementById("queue-content-wrapper").style.display = "block";
+    document.getElementById("queueDoctor").innerText = selectedDoctorForQueue.name;
+    document.getElementById("mainQueueSub").innerText = `Selected doctor: ${selectedDoctorForQueue.name}`;
+    document.getElementById("queue-profile-box").innerHTML = '<div class="empty">Select a patient from the queue table.</div>';
+    loadQueueData();
+}
+
+async function loadQueueData() {
+    if(!selectedDoctorForQueue) return;
+    try {
+        const res = await fetch(`${API_BASE}/doctor/${selectedDoctorForQueue.id}/queue`, { headers: { "Authorization": `Bearer ${authToken}` } });
+        const data = await res.json();
+        
+        const currNum = (data.current_token && data.current_token.token_number) ? `#${data.current_token.token_number}` : "—";
+        document.getElementById("queueSummary").innerText = `Current ${currNum} · ${data.waiting_count || 0} waiting patients`;
+
+        // LARGE CURRENT TOKEN BOX
+        const curBox = document.getElementById("current-token-box");
+        if(data.current_token) {
+            const ct = data.current_token;
+            curBox.innerHTML = `
+              <div style="font-size:72px; font-weight:900; color:var(--blue); line-height:1; margin:10px 0;">#${ct.token_number}</div>
+              <div style="font-size:22px; font-weight:800; color:var(--text); margin-bottom:5px; word-break:break-word;">${ct.patient_name}</div>
+              <div style="font-size:12px; color:var(--muted); display:flex; align-items:center; justify-content:center; gap:5px;"><span style="font-size:14px;">📱</span> ${ct.patient_phone || 'N/A'}</div>
+              <div style="margin-top:20px;"><span class="badge current" style="padding:6px 14px; font-size:11px;">● CURRENTLY SERVING</span></div>
+            `;
+        } else {
+            curBox.innerHTML = `
+              <div style="font-size:60px; font-weight:900; color:var(--muted); line-height:1; margin:10px 0;">#—</div>
+              <div style="font-size:18px; font-weight:700; color:var(--muted); margin-bottom:5px;">No active patient</div>
+              <div style="margin-top:20px;"><span class="badge completed" style="padding:6px 14px; font-size:11px;">NO ACTIVE TOKEN</span></div>
+            `;
+        }
+
+        // NEXT PATIENT
+        const nextContainer = document.getElementById("nextPatientCard");
+        if(data.next_patient) {
+            const np = data.next_patient;
+            nextContainer.innerHTML = `
+              <div class="next-patient-top">
+                <div>
+                  <div class="next-patient-label">Next Patient</div>
+                  <div class="next-patient-token">#${np.token_number}</div>
+                  <div class="next-patient-name">${np.patient_name}</div>
+                  <div class="next-patient-reason">🩺 ${np.visit_reason || '-'}</div>
+                </div>
+                <span class="badge waiting">● WAITING</span>
+              </div>
+              <div class="queue-actions">
+                <button class="action-btn accept-btn" onclick="queueAction(${np.id}, 'accept', 'Token #${np.token_number} accepted.')">✅ Accept</button>
+                <button class="action-btn skip-btn" onclick="queueAction(${np.id}, 'skip', 'Token #${np.token_number} skipped.')">⏭️ Skip</button>
+                <button class="action-btn cancel-btn" onclick="queueAction(${np.id}, 'cancel', 'Token #${np.token_number} cancelled.')">❌ Cancel</button>
+              </div>
+            `;
+        } else {
+            nextContainer.innerHTML = `<div class="next-patient-label">Next Patient</div><div class="empty" style="padding:15px 0;">No waiting patients in queue.</div>`;
+        }
+
+        // SKIPPED
+        const skipContainer = document.getElementById("skippedPatients");
+        skipContainer.innerHTML = "";
+        if(data.skipped_patients && data.skipped_patients.length > 0) {
+            skipContainer.innerHTML = data.skipped_patients.map(sp => `
+              <div class="skipped-patient">
+                <div class="skipped-info">
+                  <b>#${sp.token_number} · ${sp.patient_name}</b>
+                  <p>🩺 ${sp.visit_reason || '-'} · Temporarily Skipped</p>
+                </div>
+                <button class="recall-btn" onclick="queueAction(${sp.id}, 'recall', 'Token #${sp.token_number} recalled and accepted.')">↩️ Recall</button>
+              </div>
+            `).join("");
+        } else {
+            skipContainer.innerHTML = `<div class="empty" style="padding:10px 0;">No skipped patients.</div>`;
+        }
+
+        const todayStr = new Date().toISOString().split('T')[0];
+        const tRes = await fetch(`${API_BASE}/doctor/tokens?date_str=${todayStr}&status_filter=ALL`, { headers: { "Authorization": `Bearer ${authToken}` }});
+        currentQueueTokens = await tRes.json();
+        renderQueueTable();
+
+    } catch(e) { console.error("Error loading queue details"); }
+}
+
+function renderQueueTable() {
+    const tbody = document.getElementById("queue-table-body");
+    const search = document.getElementById("patientSearch").value.toLowerCase();
+    
+    let filtered = currentQueueTokens.filter(t => t.doctor_id === selectedDoctorForQueue.id);
+    if(search) {
+        filtered = filtered.filter(t => 
+            t.patient_name.toLowerCase().includes(search) || 
+            (t.patient_phone && t.patient_phone.includes(search)) || 
+            String(t.token_number).includes(search)
+        );
+    }
+
+    if(filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5"><div class="empty">No tokens found.</div></td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = filtered.map(t => `
+        <tr onclick='showQueuePatientProfile(${JSON.stringify(t).replace(/'/g, "&#39;")})'>
+            <td data-label="Token"><b>#${t.token_number}</b></td>
+            <td data-label="Patient"><b>${t.patient_name}</b></td>
+            <td data-label="Mobile">${t.patient_phone || 'N/A'}</td>
+            <td data-label="Reason">${t.visit_reason}</td>
+            <td data-label="Status">${getStatusBadge(t.status)}</td>
+        </tr>
+    `).join("");
+}
+
+document.getElementById("patientSearch").addEventListener("input", renderQueueTable);
+
+// --- QUEUE PATIENT PROFILE ---
+async function showQueuePatientProfile(t) {
+    const initials = t.patient_name.split(" ").map(x=>x[0]).slice(0,2).join("");
+    
+    document.getElementById("queue-profile-box").innerHTML = `
+      <div class="selected-patient-header">
+        <div class="sel-patient-avatar">${initials}</div>
+        <div>
+            <div class="sel-patient-name" style="word-break:break-word;">${t.patient_name}</div>
+            <div class="sel-patient-sub">Token #${t.token_number} · ${t.doctor_name}</div>
+        </div>
+      </div>
+      
+      <div class="patient-stats-grid" style="grid-template-columns:1fr 1fr; margin-bottom:15px;">
+         <div class="p-stat-item"><b>${t.patient_phone || 'N/A'}</b><span>Mobile</span></div>
+         <div class="p-stat-item"><b>${t.patient_age || '-'}</b><span>Age</span></div>
+         <div class="p-stat-item"><b>${t.patient_gender || '-'}</b><span>Gender</span></div>
+         <div class="p-stat-item"><b id="p-prof-tot-visits">...</b><span>Total Visits</span></div>
+      </div>
+      
+      <div class="section-head" style="margin-bottom:10px; margin-top:20px; border-bottom:1px solid var(--border); padding-bottom:8px;">
+        <h2 style="font-size:12px;">Visit History</h2>
+      </div>
+      
+      <div style="font-size:11px;">
+        <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border);">
+            <span style="color:var(--muted); width:80px;" id="p-prof-first-date">...</span>
+            <span style="flex:1;">First recorded visit</span>
+            <strong style="color:var(--muted);">✓</strong>
+        </div>
+        <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border);">
+            <span style="color:var(--blue); font-weight:700; width:80px;">${t.visit_date}</span>
+            <span style="flex:1; font-weight:500;">${t.visit_reason}</span>
+            <strong style="color:var(--text);">#${t.token_number}</strong>
+        </div>
+      </div>
+    `;
+
+    try {
+        const res = await fetch(`${API_BASE}/doctor/patients/${t.patient_id}/history`, { headers: { "Authorization": `Bearer ${authToken}` }});
+        if(res.ok) {
+            const history = await res.json();
+            const totalVisits = history.length;
+            const firstVisit = totalVisits > 0 ? history[history.length - 1].visit_date : '-';
+            
+            document.getElementById("p-prof-tot-visits").innerText = totalVisits;
+            document.getElementById("p-prof-first-date").innerText = firstVisit;
+        } else {
+            document.getElementById("p-prof-tot-visits").innerText = "Error";
+            document.getElementById("p-prof-first-date").innerText = "-";
+        }
+    } catch(e) {
+        document.getElementById("p-prof-tot-visits").innerText = "Error";
+        document.getElementById("p-prof-first-date").innerText = "-";
+    }
+}
+
+async function queueAction(visitId, action, successMessage) {
+    if(action === 'cancel' && !confirm("Are you sure you want to cancel this token?")) return;
+    
+    try {
+        const res = await fetch(`${API_BASE}/visit/${visitId}/${action}`, {
+            method: "POST", headers: { "Authorization": `Bearer ${authToken}` }
+        });
+        if(res.ok) {
+            showToast(successMessage);
+            loadQueueData();
+            loadDashboardSummary(); 
+        } else { 
+            const err = await res.json();
+            showToast(err.detail || "Failed to process action", true); 
+        }
+    } catch(e) { showToast("Network Error during action", true); }
+}
+
+// --- PATIENTS TAB ---
+function handlePatientDateFilter() {
+    const filter = document.getElementById("patient-date-filter").value;
+    const start = document.getElementById("patient-start-date");
+    const end = document.getElementById("patient-end-date");
+    
+    if (filter === "CUSTOM") {
+        start.style.display = "block"; end.style.display = "block";
+    } else {
+        start.style.display = "none"; end.style.display = "none";
+        const today = new Date();
+        if (filter === "TODAY") { start.valueAsDate = today; end.valueAsDate = today; } 
+        else if (filter === "WEEK") {
+            const fd = new Date(today.setDate(today.getDate() - today.getDay()));
+            start.valueAsDate = fd; end.valueAsDate = new Date();
+        } else if (filter === "MONTH") {
+            start.valueAsDate = new Date(today.getFullYear(), today.getMonth(), 1); end.valueAsDate = new Date();
+        } else if (filter === "ALL") {
+            start.value = ""; end.value = "";
+        }
+    }
+    searchPatients();
+}
+
+async function searchPatients() {
+    const q = document.getElementById("patient-search").value;
+    const start = document.getElementById("patient-start-date").value;
+    const end = document.getElementById("patient-end-date").value;
+
+    try {
+        const sumRes = await fetch(`${API_BASE}/doctor/patients-summary?query=${encodeURIComponent(q)}&start_date=${start}&end_date=${end}`, { headers: { "Authorization": `Bearer ${authToken}` }});
+        if(sumRes.ok) {
+            const s = await sumRes.json();
+            document.getElementById("sum-tot-patients").innerText = s.total_patients;
+            document.getElementById("sum-new-patients").innerText = s.new_patients;
+            document.getElementById("sum-ret-patients").innerText = s.returning_patients;
+            document.getElementById("sum-tot-visits").innerText = s.total_visits;
+        }
+        
+        const res = await fetch(`${API_BASE}/doctor/patients?query=${encodeURIComponent(q)}&start_date=${start}&end_date=${end}`, { headers: { "Authorization": `Bearer ${authToken}` }});
+        currentPatientsList = await res.json();
+        const tbody = document.getElementById("patients-table-body");
+        tbody.innerHTML = "";
+
+        if(currentPatientsList.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6"><div class="empty">No patients found.</div></td></tr>`;
+            return;
+        }
+
+        currentPatientsList.forEach(p => {
+            tbody.innerHTML += `
+                <tr onclick="viewPatientHistoryModal(${p.id})">
+                    <td data-label="Patient Name"><b>${p.name}</b></td>
+                    <td data-label="Mobile">${p.whatsapp_number}</td>
+                    <td data-label="Age/Gender">${p.age} · ${p.gender}</td>
+                    <td data-label="Total Visits"><b>${p.visit_count}</b></td>
+                    <td data-label="First Visit">${p.first_visit_date || '-'}</td>
+                    <td data-label="Last Visit">${p.last_visit_date || '-'}</td>
+                </tr>
+            `;
+        });
+    } catch (err) { showToast("Failed to fetch patients", true); }
+}
+
+async function viewPatientHistoryModal(patientId) {
+    const p = currentPatientsList.find(x => x.id === patientId);
+    if (!p) return;
+
+    try {
+        const res = await fetch(`${API_BASE}/doctor/patients/${patientId}/history`, { headers: { "Authorization": `Bearer ${authToken}` }});
+        const history = await res.json();
+        const initials = p.name.split(" ").map(x=>x[0]).slice(0,2).join("");
+
+        document.getElementById("modal-patient-info").innerHTML = `
+            <div class="selected-patient-header" style="border-bottom:none; padding-bottom:0; margin-bottom:0;">
+                <div class="sel-patient-avatar" style="width:52px;height:52px;font-size:18px;">${initials}</div>
+                <div>
+                    <div class="sel-patient-name" style="font-size:17px;">${p.name}</div>
+                    <div class="sel-patient-sub" style="font-size:12px;">📱 ${p.whatsapp_number} &nbsp;·&nbsp; 🎂 ${p.age} yrs &nbsp;·&nbsp; ⚥ ${p.gender}</div>
+                </div>
+            </div>
+            <div class="patient-stats-grid" style="grid-template-columns:1fr 1fr; margin-top:16px; background:#f8fafc; padding:15px; border-radius:12px; margin-bottom:0;">
+               <div class="p-stat-item"><b>${p.visit_count}</b><span>Total Visits</span></div>
+               <div class="p-stat-item"><b>${p.first_visit_date || '-'}</b><span>First Visit</span></div>
+            </div>
+        `;
+
+        const timeline = document.getElementById("modal-timeline-body");
+        timeline.innerHTML = "";
+        if(history.length === 0) timeline.innerHTML = `<div class="empty">No visits recorded in database.</div>`;
+        else {
+            history.forEach(v => {
+                let timeStr = new Date(v.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                timeline.innerHTML += `
+                    <div style="display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);font-size:11px;align-items:center;">
+                        <div style="width:70px;"><span style="color:var(--blue);font-weight:700;white-space:nowrap;">${v.visit_date}</span><div style="font-size:9px;color:var(--muted);">${timeStr}</div></div>
+                        <div style="flex:1;">
+                            <strong style="display:block;font-size:12px;margin-bottom:2px;color:var(--text);">${v.visit_reason}</strong>
+                            <span style="color:var(--muted);">Dr. ${v.doctor_name || 'N/A'}</span>
+                        </div>
+                        <div style="text-align:right;">
+                            <b style="display:block;font-size:12px;margin-bottom:4px;">#${v.token_number}</b>
+                            ${getStatusBadge(v.status)}
+                        </div>
                     </div>
                 `;
             });
         }
+        document.getElementById("patient-modal").style.display = "flex";
+    } catch (err) { showToast("Error loading patient history", true); }
+}
+function closeModal() { document.getElementById("patient-modal").style.display = "none"; }
 
-        // --- QUEUE MANAGEMENT ---
-        async function openQueue(id, name) {
-            currentManagingDocId = id;
-            document.getElementById('queue-doc-name').innerText = name + ' - Queue';
-            
-            // Switch views
-            document.getElementById('view-dashboard').classList.add('hidden');
-            document.getElementById('view-queue').classList.remove('hidden');
-            document.getElementById('topbar-title').innerText = 'Queue Management';
+// --- HISTORY TAB ---
+async function loadTokenHistory() {
+    const dateStr = document.getElementById("history-date").value;
+    const statusFilter = document.getElementById("history-filter").value;
+    const docFilter = document.getElementById("history-doctor").value;
 
-            await renderSpecificQueue(id);
-        }
-
-        function closeQueueView() {
-            currentManagingDocId = null;
-            document.getElementById('view-queue').classList.add('hidden');
-            document.getElementById('view-dashboard').classList.remove('hidden');
-            document.getElementById('topbar-title').innerText = 'Overview';
-        }
-
-        async function renderSpecificQueue(id) {
-            try {
-                const q = await apiGet(`/doctor/${id}/queue`);
-                
-                // Current
-                if(q.current_token) {
-                    document.getElementById('q-curr-token').innerText = q.current_token.token_number;
-                    document.getElementById('q-curr-name').innerText = q.current_token.patient_name;
-                    document.getElementById('q-curr-reason').innerText = q.current_token.visit_reason;
-                } else {
-                    document.getElementById('q-curr-token').innerText = "-";
-                    document.getElementById('q-curr-name').innerText = "Waiting...";
-                    document.getElementById('q-curr-reason').innerText = "Call Next Patient";
-                }
-
-                // Next
-                if(q.next_patient) {
-                    document.getElementById('q-next-token').innerText = q.next_patient.token_number;
-                    document.getElementById('q-next-name').innerText = q.next_patient.patient_name;
-                    document.getElementById('q-next-reason').innerText = q.next_patient.visit_reason;
-                } else {
-                    document.getElementById('q-next-token').innerText = "-";
-                    document.getElementById('q-next-name').innerText = "None";
-                    document.getElementById('q-next-reason').innerText = "Queue Empty";
-                }
-
-                document.getElementById('q-wait-count').innerText = q.waiting_count;
-
-                // Render Skipped
-                const skipList = document.getElementById('q-skipped-list');
-                if(q.skipped_patients && q.skipped_patients.length > 0) {
-                    skipList.innerHTML = q.skipped_patients.map(p => `
-                        <li class="flex justify-between items-center bg-gray-50 px-3 py-2 rounded border border-gray-100">
-                            <span class="text-sm font-semibold text-gray-700">#${p.token_number} - ${p.patient_name}</span>
-                            <button onclick="recallToken(${p.id})" class="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded hover:bg-blue-200">Recall</button>
-                        </li>
-                    `).join('');
-                } else {
-                    skipList.innerHTML = `<li class="text-sm text-gray-400 italic">No skipped patients</li>`;
-                }
-
-            } catch(e) { console.error("Error loading queue details"); }
-        }
-
-        async function advanceQueue() {
-            if(!currentManagingDocId) return;
-            try {
-                // FIXED SPECIFIC ENDPOINT
-                const res = await apiPost(`/doctor/${currentManagingDocId}/next-patient`, {});
-                const data = await res.json();
-                if(res.ok) {
-                    renderSpecificQueue(currentManagingDocId);
-                    loadDashboardData();
-                } else {
-                    Swal.fire({icon:'info', title:'Queue Update', text: data.detail || data.message});
-                }
-            } catch(e) { Swal.fire('Error', 'Network error', 'error'); }
-        }
+    try {
+        const res = await fetch(`${API_BASE}/doctor/tokens?date_str=${dateStr}&status_filter=${statusFilter}`, { headers: { "Authorization": `Bearer ${authToken}` }});
+        let tokens = await res.json();
         
-        async function markCurrentComplete() {
-            advanceQueue(); // Completes current and calls next
+        if (docFilter !== "ALL") {
+            tokens = tokens.filter(t => t.doctor_id == docFilter);
         }
 
-        async function recallToken(visitId) {
-            try {
-                const res = await apiPost(`/visit/${visitId}/recall`, {});
-                if(res.ok) {
-                    renderSpecificQueue(currentManagingDocId);
-                }
-            } catch(e) {}
+        const tbody = document.getElementById("history-table-body");
+        tbody.innerHTML = "";
+        
+        if(tokens.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5"><div class="empty">No tokens found.</div></td></tr>`;
+            return;
         }
-
-        // --- DOCTOR ADDITION (New Endpoint integration) ---
-        document.getElementById('add-doctor-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const btn = e.target.querySelector('button[type="submit"]');
-            btn.disabled = true;
-            btn.innerHTML = '<span class="spinner"></span> Saving...';
-
-            const payload = {
-                name: document.getElementById('new-doc-name').value,
-                email: document.getElementById('new-doc-email').value,
-                password: document.getElementById('new-doc-password').value
-            };
-
-            try {
-                // FIXED ENDPOINT
-                const res = await apiPost('/doctors/add', payload);
-                const data = await res.json();
-                
-                if(res.ok) {
-                    Swal.fire({icon: 'success', title: 'Doctor Added', text: data.message, timer: 2000});
-                    closeModal('add-doctor-modal');
-                    e.target.reset();
-                    loadDashboardData();
-                } else {
-                    Swal.fire({icon: 'error', title: 'Failed', text: data.detail});
-                }
-            } catch(err) {
-                Swal.fire({icon: 'error', title: 'Error', text: 'Server connection failed.'});
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = 'Save Doctor';
-            }
+        tokens.forEach(t => {
+            tbody.innerHTML += `
+                <tr>
+                    <td data-label="Token"><strong class="text-blue" style="font-size: 13px;">#${t.token_number}</strong></td>
+                    <td data-label="Patient"><b>${t.patient_name}</b></td>
+                    <td data-label="Doctor">Dr. ${t.doctor_name || 'N/A'}</td>
+                    <td data-label="Reason">${t.visit_reason}</td>
+                    <td data-label="Status">${getStatusBadge(t.status)}</td>
+                </tr>
+            `;
         });
+    } catch (err) { showToast("Error loading tokens history", true); }
+}
 
-        // --- WALKIN PATIENT ---
-        function updateDoctorDropdown(doctors) {
-            const sel = document.getElementById('wi-doctor');
-            const currentVal = sel.value;
-            sel.innerHTML = '<option value="">-- Choose Available Doctor --</option>';
-            doctors.forEach(d => {
-                const displayName = d.name.toLowerCase().startsWith('dr') ? d.name : `Dr. ${d.name}`;
-                sel.innerHTML += `<option value="${d.id}">${displayName}</option>`;
-            });
-            if(currentVal) sel.value = currentVal;
-        }
+// --- WALK-IN MODAL ---
+function openWalkinModal() {
+    const docSelect = document.getElementById("walkin-doctor");
+    docSelect.innerHTML = "<option value=''>-- Select Doctor --</option>";
+    let onlineDocs = allDoctors.filter(d => d.is_online);
+    onlineDocs.forEach(d => { docSelect.innerHTML += `<option value="${d.id}">Dr. ${d.name}</option>`; });
+    
+    if(onlineDocs.length === 0) {
+        showToast("No doctors are online to accept walk-ins.", true);
+        return;
+    }
+    if(selectedDoctorForQueue && onlineDocs.find(d => d.id === selectedDoctorForQueue.id)) {
+        docSelect.value = selectedDoctorForQueue.id;
+    }
+    document.getElementById("walkin-modal").style.display = "flex";
+}
 
-        document.getElementById('walkin-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const num = document.getElementById('wi-whatsapp').value;
-            const fullNum = num.startsWith('91') ? num : '91' + num;
+function closeWalkinModal() {
+    document.getElementById("walkin-modal").style.display = "none";
+    document.getElementById("walkin-form").reset();
+}
 
-            const payload = {
-                doctor_id: parseInt(document.getElementById('wi-doctor').value),
-                name: document.getElementById('wi-name').value,
-                whatsapp_number: fullNum,
-                phone_number: fullNum,
-                age: 0,
-                gender: "Not Specified",
-                visit_reason: document.getElementById('wi-reason').value
-            };
-
-            try {
-                const res = await apiPost('/doctor/add-walkin', payload);
-                const data = await res.json();
-                if(res.ok) {
-                    Swal.fire({icon: 'success', title: 'Token Generated', text: `Token #${data.token_number} assigned.`, timer: 2500});
-                    closeModal('walkin-modal');
-                    e.target.reset();
-                    loadDashboardData();
-                } else {
-                    Swal.fire({icon: 'error', title: 'Failed', text: data.detail});
-                }
-            } catch(err) {
-                Swal.fire('Error', 'Network connection failed.', 'error');
-            }
+document.getElementById("walkin-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const payload = {
+        doctor_id: parseInt(document.getElementById("walkin-doctor").value),
+        whatsapp_number: document.getElementById("walkin-phone").value,
+        phone_number: document.getElementById("walkin-phone").value,
+        name: document.getElementById("walkin-name").value,
+        age: parseInt(document.getElementById("walkin-age").value),
+        gender: document.getElementById("walkin-gender").value,
+        visit_reason: document.getElementById("walkin-reason").value
+    };
+    try {
+        const res = await fetch(`${API_BASE}/doctor/add-walkin`, {
+            method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${authToken}` },
+            body: JSON.stringify(payload)
         });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Error generating token");
+        
+        showToast(`Token #${data.token_number} Generated Successfully!`);
+        closeWalkinModal();
+        loadDashboardSummary();
+        if(selectedDoctorForQueue && selectedDoctorForQueue.id === payload.doctor_id) loadQueueData();
+    } catch (err) { showToast(err.message, true); }
+});
 
-        // --- PATIENTS DIRECTORY ---
-        async function loadPatientsList() {
-            try {
-                const patients = await apiGet('/doctor/patients');
-                const tbody = document.getElementById('patients-table-body');
-                tbody.innerHTML = '';
-                
-                if(patients.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-gray-500">No patients found.</td></tr>';
-                    return;
-                }
-
-                patients.forEach(p => {
-                    tbody.innerHTML += `
-                        <tr class="hover:bg-blue-50 transition border-b border-gray-100 last:border-0">
-                            <td class="p-4 font-semibold text-gray-600">PT-${p.id.toString().padStart(4, '0')}</td>
-                            <td class="p-4 font-bold text-gray-800">${p.name}</td>
-                            <td class="p-4 text-gray-600">${p.whatsapp_number}</td>
-                            <td class="p-4 text-center"><span class="bg-blue-100 text-blue-600 px-3 py-1 rounded-full text-xs font-bold">${p.visit_count}</span></td>
-                            <td class="p-4 text-center">
-                                <button class="text-blue-500 hover:text-blue-700 font-semibold text-sm bg-blue-50 px-3 py-1.5 rounded transition">View History</button>
-                            </td>
-                        </tr>
-                    `;
-                });
-            } catch(e) {}
-        }
-
-        // --- MODAL UTILS ---
-        function openModal(id) {
-            const el = document.getElementById(id);
-            el.classList.remove('hidden');
-            // Little delay to allow display:block before opacity transition
-            setTimeout(() => {
-                el.classList.remove('opacity-0');
-                el.children[0].classList.remove('scale-95');
-            }, 10);
-            
-            // Auto-select doctor for walkin if inside queue view
-            if(id === 'walkin-modal' && currentManagingDocId) {
-                document.getElementById('wi-doctor').value = currentManagingDocId;
-            }
-        }
-
-        function closeModal(id) {
-            const el = document.getElementById(id);
-            el.classList.add('opacity-0');
-            el.children[0].classList.add('scale-95');
-            setTimeout(() => {
-                el.classList.add('hidden');
-            }, 200);
-        }
-
-        // --- CLOCK UTILS ---
-        function startClock() {
-            setInterval(() => {
-                const now = new Date();
-                document.getElementById('time-display').innerText = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-            }, 1000);
-        }
-    </script>
+// INIT
+if (authToken) initDashboard();
+</script>
 </body>
 </html>
