@@ -163,6 +163,10 @@ tbody tr:hover{background:#f8fafc;cursor:pointer;}
 .modal-body{padding:24px;overflow-y:auto;}
 .modal-footer{padding:20px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px;background:#f8fafc;border-radius:0 0 var(--radius) var(--radius);}
 
+/* Delete Icon Buttons */
+.del-icon-btn { color:var(--red); border:1px solid #fee2e2; background:#fef2f2; border-radius:9px; padding:9px 12px; font-size:12px; transition:0.2s; display:flex; align-items:center; justify-content:center; }
+.del-icon-btn:hover { background:#fee2e2; }
+
 /* --- MOBILE RESPONSIVE OPTIMIZATION --- */
 .hide-mobile { display: inline-block; }
 @media(max-width: 992px){
@@ -175,8 +179,8 @@ tbody tr:hover{background:#f8fafc;cursor:pointer;}
   /* Bottom Navigation - Fixed to bottom */
   .sidebar{flex-direction:row;justify-content:space-around;align-items:center;bottom:0;top:auto;width:100%;height:70px;padding:0;z-index:900;border-right:none;border-top:1px solid var(--border);padding-bottom:env(safe-area-inset-bottom);background:rgba(255,255,255,0.95);backdrop-filter:blur(10px);box-shadow:0 -4px 15px rgba(0,0,0,0.05);}
   .brand, .sidebar-bottom{display:none;}
-  .nav{display:flex;flex-direction:row;width:100%;height:100%;gap:0;}
-  .nav button{flex-direction:column;justify-content:center;gap:4px;flex:1;padding:6px;border-radius:0;font-size:10px;font-weight:700;color:#94a3b8;}
+  .nav{display:flex;flex-direction:row;width:100%;height:100%;gap:0;overflow-x:auto;}
+  .nav button{flex-direction:column;justify-content:center;gap:4px;flex:1;padding:6px;border-radius:0;font-size:10px;font-weight:700;color:#94a3b8;min-width:60px;}
   .nav button.active{background:transparent;color:var(--blue);border-top:3px solid var(--blue);}
   .nav button .icon{font-size:22px !important;margin-bottom:2px;}
   
@@ -223,6 +227,7 @@ tbody tr:hover{background:#f8fafc;cursor:pointer;}
   .modal-body{padding:20px;}
 }
 </style>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
 
@@ -405,9 +410,9 @@ tbody tr:hover{background:#f8fafc;cursor:pointer;}
             </div>
             <div class="table-wrap">
               <table>
-                <thead><tr><th>Patient Name</th><th>Mobile</th><th>Age/Gender</th><th>Total Visits</th><th>First Visit</th><th>Last Visit</th></tr></thead>
+                <thead><tr><th>Patient Name</th><th>Mobile</th><th>Age/Gender</th><th>Total Visits</th><th>First Visit</th><th>Last Visit</th><th>Action</th></tr></thead>
                 <tbody id="patients-table-body">
-                  <tr><td colspan="6"><div class="empty">Search or load patients...</div></td></tr>
+                  <tr><td colspan="7"><div class="empty">Search or load patients...</div></td></tr>
                 </tbody>
               </table>
             </div>
@@ -546,12 +551,50 @@ tbody tr:hover{background:#f8fafc;cursor:pointer;}
   </div>
 </div>
 
+<!-- NEW: Delete Doctor Modal -->
+<div class="modal-overlay" id="delete-doctor-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>⚠️ Delete Doctor?</h2>
+      <button class="close-btn" onclick="closeModal('delete-doctor-modal')">×</button>
+    </div>
+    <div class="modal-body">
+      <p style="color:var(--text); font-size:14px;">Are you sure you want to remove:</p>
+      <h3 id="del-doc-name" style="margin: 10px 0; font-size: 18px; color: var(--text); font-weight:800;"></h3>
+      <p class="text-muted" style="font-size: 13px; line-height:1.5;">This action will remove the doctor from the active doctor list. Their visit history will remain intact.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-head" onclick="closeModal('delete-doctor-modal')">Cancel</button>
+      <button class="btn-primary" style="background: var(--red); width:auto; padding:10px 20px;" onclick="confirmDeleteDoctor()">Delete Doctor</button>
+    </div>
+  </div>
+</div>
+
+<!-- NEW: Delete Patient Modal -->
+<div class="modal-overlay" id="delete-patient-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>⚠️ Delete Patient?</h2>
+      <button class="close-btn" onclick="closeModal('delete-patient-modal')">×</button>
+    </div>
+    <div class="modal-body">
+      <p style="color:var(--text); font-size:14px;">Are you sure you want to remove:</p>
+      <h3 id="del-pat-name" style="margin: 10px 0 5px 0; font-size: 18px; color: var(--text); font-weight:800;"></h3>
+      <p id="del-pat-phone" style="font-size: 14px; font-weight: 600; color: var(--blue); margin-bottom: 15px;"></p>
+      <p class="text-muted" style="font-size: 13px; line-height:1.5;">This patient may have previous visit/token history. They will be removed from the directory but historical records will remain safe.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-head" onclick="closeModal('delete-patient-modal')">Cancel</button>
+      <button class="btn-primary" style="background: var(--red); width:auto; padding:10px 20px;" onclick="confirmDeletePatient()">Delete Patient</button>
+    </div>
+  </div>
+</div>
+
 <script>
 /**
  * CLINIC TOKEN MANAGEMENT SYSTEM
  */
 
-// ONLY CHANGED THIS LINE - Uses Railway automatically
 const API_BASE = window.location.origin;
 let authToken = localStorage.getItem("token") || "";
 
@@ -559,6 +602,9 @@ let allDoctors = [];
 let currentPatientsList = [];
 let selectedDoctorForQueue = null;
 let currentQueueTokens = [];
+
+let doctorToDelete = null;
+let patientToDelete = null;
 
 document.getElementById('header-date').innerText = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' });
 
@@ -754,12 +800,17 @@ async function loadDoctors() {
                         <div style="text-align:center;padding:12px 5px;border-left:1px solid var(--border);"><b style="font-size:17px;">${waiting}</b><span style="display:block;font-size:9px;color:var(--muted);margin-top:3px;text-transform:uppercase;font-weight:700;">Waiting</span></div>
                         <div style="text-align:center;padding:12px 5px;border-left:1px solid var(--border);"><b style="font-size:17px;">${completed}</b><span style="display:block;font-size:9px;color:var(--muted);margin-top:3px;text-transform:uppercase;font-weight:700;">Completed</span></div>
                       </div>
-                      <div style="display:flex;gap:8px;align-items:center;justify-content:space-between;margin-top:10px;">
+                      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;">
                         <label class="switch" title="Doctor ON/OFF">
-                          <input type="checkbox" ${isOnline ? 'checked' : ''} onchange="toggleDoctorStatus(${doc.id}, this.checked, 'Dr. ${doc.name}')">
+                          <input type="checkbox" ${isOnline ? 'checked' : ''} onchange="toggleDoctorStatus(${doc.id}, this.checked, 'Dr. ${doc.name.replace(/'/g, "\\'")}')">
                           <span class="slider"></span>
                         </label>
-                        <button class="view-btn" onclick="selectDoctorQueue(${doc.id}, 'Dr. ${doc.name}')">👥 Manage Queue</button>
+                        <div style="display:flex;gap:8px;flex:1;margin-left:8px;">
+                          <button class="view-btn" style="flex:1;" onclick="selectDoctorQueue(${doc.id}, 'Dr. ${doc.name.replace(/'/g, "\\'")}')">👥 Manage Queue</button>
+                          <button class="del-icon-btn" onclick="openDeleteDoctorModal(${doc.id}, 'Dr. ${doc.name.replace(/'/g, "\\'")}')" title="Delete Doctor">
+                            <i class="fa-solid fa-trash"></i>
+                          </button>
+                        </div>
                       </div>
                     </article>
                     `;
@@ -782,6 +833,33 @@ async function toggleDoctorStatus(docId, isOnline, name) {
             el.innerHTML = `<i></i>${isOnline ? 'ONLINE' : 'OFFLINE'}`;
         }
     } catch(e) { showToast("Error updating status", true); }
+}
+
+// --- DOCTOR DELETE LOGIC ---
+function openDeleteDoctorModal(id, name) {
+    doctorToDelete = id;
+    document.getElementById('del-doc-name').innerText = name;
+    document.getElementById('delete-doctor-modal').style.display = "flex";
+}
+
+async function confirmDeleteDoctor() {
+    if (!doctorToDelete) return;
+    try {
+        const res = await fetch(`${API_BASE}/doctors/${doctorToDelete}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        if (res.ok) {
+            showToast("Doctor deleted successfully");
+            closeModal('delete-doctor-modal');
+            loadDoctors();
+        } else {
+            const data = await res.json();
+            showToast(data.detail || "Failed to delete doctor", true);
+        }
+    } catch (e) {
+        showToast("Network Error", true);
+    }
 }
 
 // --- ADD DOCTOR MODAL ---
@@ -1057,7 +1135,7 @@ async function searchPatients() {
         tbody.innerHTML = "";
 
         if(currentPatientsList.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="6"><div class="empty">No patients found.</div></td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="7"><div class="empty">No patients found.</div></td></tr>`;
             return;
         }
 
@@ -1070,6 +1148,11 @@ async function searchPatients() {
                     <td data-label="Total Visits"><b>${p.visit_count}</b></td>
                     <td data-label="First Visit">${p.first_visit_date || '-'}</td>
                     <td data-label="Last Visit">${p.last_visit_date || '-'}</td>
+                    <td data-label="Action" onclick="event.stopPropagation()">
+                        <button onclick="openDeletePatientModal(${p.id}, '${p.name.replace(/'/g, "\\'")}', '${p.whatsapp_number}')" style="color:var(--red); background:#fef2f2; border:1px solid #fee2e2; padding:6px 12px; border-radius:6px; font-size:12px; font-weight:700; transition:0.2s;" onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='#fef2f2'">
+                            <i class="fa-solid fa-trash mr-1"></i> Delete
+                        </button>
+                    </td>
                 </tr>
             `;
         });
@@ -1123,7 +1206,34 @@ async function viewPatientHistoryModal(patientId) {
         document.getElementById("patient-modal").style.display = "flex";
     } catch (err) { showToast("Error loading patient history", true); }
 }
-function closeModal() { document.getElementById("patient-modal").style.display = "none"; }
+
+// --- PATIENT DELETE LOGIC ---
+function openDeletePatientModal(id, name, phone) {
+    patientToDelete = id;
+    document.getElementById('del-pat-name').innerText = name;
+    document.getElementById('del-pat-phone').innerText = "📱 " + phone;
+    document.getElementById('delete-patient-modal').style.display = "flex";
+}
+
+async function confirmDeletePatient() {
+    if (!patientToDelete) return;
+    try {
+        const res = await fetch(`${API_BASE}/patients/${patientToDelete}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        if (res.ok) {
+            showToast("Patient deleted successfully");
+            closeModal('delete-patient-modal');
+            searchPatients();
+        } else {
+            const data = await res.json();
+            showToast(data.detail || "Failed to delete patient", true);
+        }
+    } catch (e) {
+        showToast("Network Error", true);
+    }
+}
 
 // --- HISTORY TAB ---
 async function loadTokenHistory() {
@@ -1207,6 +1317,14 @@ document.getElementById("walkin-form").addEventListener("submit", async (e) => {
         if(selectedDoctorForQueue && selectedDoctorForQueue.id === payload.doctor_id) loadQueueData();
     } catch (err) { showToast(err.message, true); }
 });
+
+function closeModal(id) { 
+    if(id) {
+        document.getElementById(id).style.display = "none";
+    } else {
+        document.getElementById("patient-modal").style.display = "none"; 
+    }
+}
 
 // INIT
 if (authToken) initDashboard();
