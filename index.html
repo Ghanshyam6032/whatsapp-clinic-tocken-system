@@ -267,6 +267,7 @@ tbody tr:hover{background:#f8fafc;cursor:pointer;}
         <button onclick="switchTab('queue')"><span class="icon" style="font-size:18px;">🎫</span> <span class="nav-text">Queue</span></button>
         <button onclick="switchTab('patients')"><span class="icon" style="font-size:18px;">♙</span> <span class="nav-text">Patients</span></button>
         <button onclick="switchTab('history')"><span class="icon" style="font-size:18px;">📋</span> <span class="nav-text">History</span></button>
+        <button onclick="switchTab('reminders')"><span class="icon" style="font-size:18px;">🔔</span> <span class="nav-text">Reminders</span></button>
       </nav>
       <div class="sidebar-bottom"><button class="logout" onclick="logout()">↪ Logout</button></div>
     </aside>
@@ -448,6 +449,54 @@ tbody tr:hover{background:#f8fafc;cursor:pointer;}
                 </tbody>
               </table>
             </div>
+          </div>
+        </div>
+
+        <!-- REMINDERS TAB -->
+        <div id="tab-reminders" class="tab-content">
+          <div class="page-head">
+            <div><h1>🔔 Token Reminders</h1><p>Configure automatic WhatsApp token alerts</p></div>
+          </div>
+          <div class="card" style="max-width: 600px;">
+            <div class="section-head" style="margin-bottom: 20px;">
+              <h2>Reminder System</h2>
+            </div>
+            
+            <div style="display:flex; justify-content:space-between; align-items:center; padding-bottom:15px; border-bottom:1px solid var(--border); margin-bottom:15px;">
+              <div>
+                <strong style="font-size:14px; color:var(--text);">Enable WhatsApp Reminders</strong>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="rem-global-toggle" checked>
+                <span class="slider"></span>
+              </label>
+            </div>
+
+            <div style="padding-bottom:15px; border-bottom:1px solid var(--border); margin-bottom:15px;">
+              <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+                <input type="checkbox" id="rem-near-turn" style="width:16px; height:16px;" checked>
+                <strong style="font-size:14px; color:var(--text);">Near Turn Reminder</strong>
+              </div>
+              <div style="padding-left: 26px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                <label style="font-size:13px; color:var(--muted);">Notify when patients ahead:</label>
+                <select id="rem-patients-ahead" class="form-control" style="width:auto; padding:8px 12px; min-width: 80px;">
+                  <option value="1">1</option>
+                  <option value="2" selected>2</option>
+                  <option value="3">3</option>
+                  <option value="4">4</option>
+                  <option value="5">5</option>
+                </select>
+              </div>
+            </div>
+
+            <div style="padding-bottom:20px; margin-bottom:20px;">
+              <div style="display:flex; align-items:center; gap:10px;">
+                <input type="checkbox" id="rem-your-turn" style="width:16px; height:16px;" checked>
+                <strong style="font-size:14px; color:var(--text);">Your Turn Reminder</strong>
+              </div>
+            </div>
+
+            <button class="btn-primary" style="width:auto; padding:12px 24px;" onclick="saveReminderSettings()">Save Settings</button>
           </div>
         </div>
 
@@ -687,6 +736,7 @@ async function initDashboard() {
         loadClinicStatus();
         loadDashboardSummary();
         loadDoctors();
+        loadReminderSettings();
     } catch (err) { logout(); }
 }
 
@@ -707,6 +757,7 @@ function switchTab(tabName) {
         if(!document.getElementById("history-date").value) document.getElementById("history-date").valueAsDate = new Date();
         loadTokenHistory();
     }
+    if (tabName === 'reminders') loadReminderSettings();
 }
 
 // --- CLINIC STATUS ---
@@ -1324,6 +1375,31 @@ function closeModal(id) {
     } else {
         document.getElementById("patient-modal").style.display = "none"; 
     }
+}
+
+// --- REMINDERS LOGIC ---
+function loadReminderSettings() {
+    const settings = JSON.parse(localStorage.getItem("reminderSettings")) || {
+        global: true,
+        nearTurn: true,
+        patientsAhead: "2",
+        yourTurn: true
+    };
+    document.getElementById("rem-global-toggle").checked = settings.global;
+    document.getElementById("rem-near-turn").checked = settings.nearTurn;
+    document.getElementById("rem-patients-ahead").value = settings.patientsAhead;
+    document.getElementById("rem-your-turn").checked = settings.yourTurn;
+}
+
+function saveReminderSettings() {
+    const settings = {
+        global: document.getElementById("rem-global-toggle").checked,
+        nearTurn: document.getElementById("rem-near-turn").checked,
+        patientsAhead: document.getElementById("rem-patients-ahead").value,
+        yourTurn: document.getElementById("rem-your-turn").checked
+    };
+    localStorage.setItem("reminderSettings", JSON.stringify(settings));
+    showToast("Reminder settings saved successfully");
 }
 
 // INIT
