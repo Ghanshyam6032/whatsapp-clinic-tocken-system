@@ -1,431 +1,1289 @@
-import os
-import re
-import traceback
-from datetime import datetime
-from typing import Optional, List
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Clinic Token Management System</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f5f7fb;--card:#fff;--text:#172033;--muted:#6b7280;
+  --border:#e6eaf0;--blue:#2563eb;--green:#16a34a;--red:#dc2626;
+  --orange:#d97706;--shadow:0 8px 28px rgba(15,23,42,.06);--shadow-sm:0 2px 10px rgba(15,23,42,.04);--radius:18px;
+}
+*{box-sizing:border-box;margin:0;padding:0;min-width:0;} /* min-width:0 prevents flex/grid blowout */
+body{font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);overflow-x:hidden;}
+button,input,select{font:inherit;outline:none;}
+button{cursor:pointer;}
 
-from fastapi import FastAPI, Depends, HTTPException, Request, status
-from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
-from sqlalchemy.orm import Session
-from sqlalchemy import func, or_
-from sqlalchemy.exc import IntegrityError
-from jose import JWTError, jwt
-from pydantic import BaseModel, Field
+/* --- LOGIN SCREEN --- */
+#login-screen{display:flex;min-height:100vh;align-items:center;justify-content:center;background:var(--bg);padding:20px;}
+.login-card{background:var(--card);padding:40px;border-radius:var(--radius);box-shadow:var(--shadow);width:100%;max-width:420px;border:1px solid var(--border);}
+.login-header{text-align:center;margin-bottom:30px;}
+.login-header .brand-icon{margin:0 auto 15px; width:56px; height:56px; font-size:26px; border-radius:14px; background:#eff6ff; color:var(--blue); display:grid; place-items:center;}
+.login-header h2{font-size:22px;}
+.login-header p{color:var(--muted);font-size:13px;margin-top:5px;}
+.form-group{margin-bottom:18px;}
+.form-group label{display:block;font-size:12px;font-weight:700;margin-bottom:6px;color:var(--text);}
+.form-control{width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:10px;font-size:14px;background:#f8fafc;transition:0.2s;}
+.form-control:focus{border-color:#9dbafc;background:#fff;box-shadow:0 0 0 3px rgba(37,99,235,0.1);}
+.btn-primary{width:100%;padding:12px;background:var(--blue);color:#fff;border:none;border-radius:10px;font-weight:700;font-size:14px;transition:0.2s;}
+.btn-primary:hover{background:#1d4ed8;}
 
-from database import Base, engine, get_db, SessionLocal
-from models import Doctor, Clinic, Patient, Visit, VisitStatus, ClinicCalendar, ProcessedWebhookEvent
-from schemas import (
-    TokenSchema, DoctorOutSchema, DashboardSummaryOutSchema, VisitOutSchema,
-    PatientOutSchema, ManualPatientAddSchema, PatientSummarySchema, StatusUpdateSchema
-)
-from security import verify_password, create_access_token, get_password_hash
-from whatsapp import process_whatsapp_message, get_today_ist, generate_daily_token
+/* --- APP LAYOUT --- */
+#app-screen{display:none;min-height:100vh;width:100vw;overflow-x:hidden;}
+.app{display:flex;min-height:100vh;width:100%;max-width:100vw;}
 
-app = FastAPI(title="WhatsApp Clinic Token System API")
+/* Sidebar */
+.sidebar{width:245px;background:#fff;border-right:1px solid var(--border);position:fixed;inset:0 auto 0 0;padding:22px 15px;z-index:50;display:flex;flex-direction:column;}
+.brand{display:flex;gap:11px;align-items:center;padding:3px 10px 28px}
+.brand-icon{width:42px;height:42px;border-radius:13px;background:#eff6ff;color:var(--blue);display:grid;place-items:center;font-size:21px;font-weight:800}
+.brand h2{font-size:16px}.brand small{color:var(--muted);font-size:11px}
+.nav{display:grid;gap:5px;flex:1;}
+.nav button{border:0;background:transparent;text-align:left;padding:12px 13px;border-radius:11px;color:#667085;font-weight:650;font-size:13px;display:flex;align-items:center;gap:10px;transition:0.2s;}
+.nav button:hover,.nav button.active{background:#eff6ff;color:var(--blue)}
+.sidebar-bottom{margin-top:auto;}
+.logout{width:100%;background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px;color:#667085;font-weight:650;transition:0.2s;}
+.logout:hover{background:#fee2e2;color:var(--red);border-color:#fecaca;}
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+/* Main Area */
+.main{margin-left:245px;flex:1;min-width:0;display:flex;flex-direction:column;max-width:calc(100vw - 245px);}
+.header{height:74px;background:#fff;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;padding:0 28px;position:sticky;top:0;z-index:40;flex-shrink:0;}
+.clinic-title{font-size:18px;font-weight:800}.clinic-sub{font-size:11px;color:var(--muted);margin-top:2px}
+.header-right{display:flex;align-items:center;gap:18px}
+.clinic-status{display:flex;align-items:center;gap:9px;border-right:1px solid var(--border);padding-right:18px}
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 4px #dcfce7}.status-dot.off{background:var(--red);box-shadow:0 0 0 4px #fee2e2}
+.status-label{font-size:12px;font-weight:800}
+.switch{position:relative;width:47px;height:26px;display:inline-block;flex-shrink:0;}.switch input{display:none}
+.slider{position:absolute;inset:0;background:#d1d5db;border-radius:99px;transition:.3s;cursor:pointer;}.slider:before{content:"";position:absolute;width:20px;height:20px;left:3px;top:3px;background:#fff;border-radius:50%;box-shadow:0 2px 5px #0002;transition:.3s}
+.switch input:checked+.slider{background:var(--green)}.switch input:checked+.slider:before{transform:translateX(21px)}
+.profile{display:flex;align-items:center;gap:9px}.avatar{width:37px;height:37px;border-radius:50%;background:#eaf0ff;color:var(--blue);display:grid;place-items:center;font-weight:800}.profile small{display:block;color:var(--muted);font-size:10px}
 
-class DoctorCreateSchema(BaseModel):
-    name: str = Field(..., min_length=1)
-    email: str = Field(..., min_length=5)
-    password: str = Field(..., min_length=6)
+/* Content & Tabs */
+.content{padding:28px;width:100%;max-width:1500px;margin:0 auto;}
+.tab-content{display:none;animation:fadeIn 0.3s ease;}
+.tab-content.active{display:block;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(5px);}to{opacity:1;transform:translateY(0);}}
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
-SECRET_KEY = os.getenv("JWT_SECRET", "super-secret-key")
-ALGORITHM = "HS256"
+.page-head{display:flex;justify-content:space-between;align-items:end;margin-bottom:22px}.page-head h1{font-size:27px}.page-head p{font-size:12px;color:var(--muted);margin-top:5px}
+.action-buttons-head{display:flex;gap:10px;}
+.btn-head{background:#fff;border:1px solid var(--border);padding:9px 13px;border-radius:10px;font-weight:650;color:#475467;transition:0.2s;font-size:13px;display:flex;align-items:center;gap:6px;}
+.btn-head:hover{background:#f8fafc;}
+.btn-head.primary{background:var(--blue);color:#fff;border:none;}
+.btn-head.primary:hover{background:#1d4ed8;}
 
-# ==========================================
-# 1. ADMIN != DOCTOR AUTHENTICATION FIX
-# ==========================================
-class AdminUser:
-    """Mock Admin Object so endpoints can safely extract .clinic_id without being a Doctor"""
-    def __init__(self, email: str, clinic: Clinic):
-        self.id = 0
-        self.name = "System Admin"
-        self.email = email
-        self.clinic_id = clinic.id if clinic else 1
-        self.clinic = clinic
-        self.is_online = True
+/* Dashboard Stats */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:15px;margin-bottom:24px}
+.stat{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:19px;box-shadow:var(--shadow-sm);min-width:0;}
+.stat-label{font-size:12px;color:var(--muted);font-weight:650;text-transform:uppercase;letter-spacing:0.5px;}
+.stat-value{font-size:29px;font-weight:850;margin-top:10px}.stat-note{font-size:11px;color:var(--muted);margin-top:4px}
 
-def get_current_active_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        if not username:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-    except JWTError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+/* Doctors Section */
+.section-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:13px}.section-head h2{font-size:18px}.section-head span{font-size:11px;color:var(--muted)}
+.doctors{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:15px;margin-bottom:24px}
+.card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-sm);min-width:0;width:100%;}
+.doctor-card{padding:19px;transition:.2s;display:flex;flex-direction:column;justify-content:space-between;}
+.doctor-card:hover{transform:translateY(-3px); box-shadow:var(--shadow);}
+.doctor-top{display:flex;justify-content:space-between;gap:10px}.doctor-info{display:flex;gap:11px}.doctor-avatar{width:45px;height:45px;border-radius:13px;background:#f1f5f9;display:grid;place-items:center;font-size:21px}
+.doctor-name{font-size:14px;font-weight:800}.doctor-role{font-size:11px;color:var(--muted);margin-top:3px}
+.online{font-size:10px;font-weight:800;color:var(--green);display:flex;gap:5px;align-items:center}.online.off{color:var(--red)}.online i{width:6px;height:6px;border-radius:50%;background:currentColor}
+.metrics{display:grid;grid-template-columns:repeat(3,1fr);margin:18px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.metric{text-align:center;padding:12px 5px}.metric+.metric{border-left:1px solid var(--border)}.metric b{font-size:17px;color:var(--blue);}.metric span{display:block;font-size:9px;color:var(--muted);margin-top:3px;text-transform:uppercase;font-weight:700;}
+.doctor-actions{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-top:10px;}
+.view-btn{flex:1;border-radius:9px;padding:10px;border:0;font-size:12px;font-weight:750;background:#eff6ff;color:var(--blue);transition:0.2s;}
+.view-btn:hover{background:#dbeafe;}
 
-    admin_email = os.getenv("ADMIN_USERNAME", "admin")
+/* Queue Layout */
+.queue-layout{display:grid;grid-template-columns:1.55fr .9fr;gap:15px;min-width:0;}
+.queue-card,.patient-card{padding:19px;min-width:0;width:100%;}
+.selected-doctor{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;}.selected-doctor h3{font-size:16px;color:var(--text);}.selected-doctor p{font-size:11px;color:var(--muted);margin-top:3px}
+.search-box{border:1px solid var(--border);padding:9px 12px;border-radius:10px;outline:0;width:230px;font-size:13px;background:#f8fafc;transition:0.2s;}
+.search-box:focus{border-color:var(--blue);background:#fff;box-shadow:0 0 0 3px rgba(37,99,235,0.1);}
+
+/* Next Patient Card */
+.next-patient-card{margin-top:16px;padding:20px;border:1px solid var(--border);border-radius:14px;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.02);}
+.next-patient-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.next-patient-label{font-size:10px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.5px}
+.next-patient-token{font-size:28px;font-weight:900;margin-top:4px;color:var(--text);}
+.next-patient-name{font-size:15px;font-weight:800;margin-top:4px;word-break:break-word;}.next-patient-reason{font-size:12px;color:var(--muted);margin-top:4px;display:flex;align-items:center;gap:4px;}
+
+/* Action Buttons Base */
+.queue-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px;width:100%;}
+.action-btn{border:0;border-radius:10px;padding:12px 16px;font-size:13px;font-weight:800;flex:1;transition:0.2s;display:inline-flex;justify-content:center;align-items:center;}
+.accept-btn{background:#dcfce7;color:#15803d}.accept-btn:hover{background:#bbf7d0;}
+.skip-btn{background:#fff7ed;color:#c2410c}.skip-btn:hover{background:#ffedd5;}
+.cancel-btn{background:#fee2e2;color:#b91c1c}.cancel-btn:hover{background:#fecaca;}
+
+/* Skipped Section */
+.skipped-section{margin-top:22px;padding-top:18px;border-top:1px solid var(--border)}
+.skipped-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.skipped-head h3{font-size:13px}.skipped-head span{font-size:10px;color:var(--muted)}
+.skipped-patient{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 15px;border:1px solid var(--border);border-radius:10px;background:#fafbfc;margin-bottom:8px;}
+.skipped-info{min-width:0}.skipped-info b{font-size:13px;color:var(--orange);word-break:break-word;}.skipped-info p{font-size:11px;color:var(--muted);margin-top:4px}
+.recall-btn{border:0;background:#eff6ff;color:var(--blue);border-radius:8px;padding:9px 14px;font-size:11px;font-weight:800;white-space:nowrap;transition:0.2s;}
+.recall-btn:hover{background:#dbeafe;}
+
+/* Tables - Horizontal Scroll Fix */
+.table-wrap{width:100%; overflow-x:auto; margin-top:18px; border:1px solid var(--border); border-radius:12px; background:var(--card); -webkit-overflow-scrolling:touch;}
+table{width:100%; border-collapse:collapse; min-width:650px; white-space:nowrap;}
+th,td{padding:14px 16px;border-bottom:1px solid var(--border);text-align:left;font-size:13px}
+th{color:var(--muted);font-weight:700;background:#fafbfc;text-transform:uppercase;font-size:10px;letter-spacing:0.5px;}
+tr{transition:0.1s;}
+tbody tr:hover{background:#f8fafc;cursor:pointer;}
+.badge{padding:6px 10px;border-radius:99px;font-size:10px;font-weight:800;text-transform:uppercase;}
+.waiting{background:#fff7ed;color:var(--orange)}.current{background:#ecfdf3;color:#15803d}.completed{background:#f1f5f9;color:var(--muted);}.cancelled{background:#fee2e2;color:var(--red);text-decoration:line-through;}.skipped{background:#f3f4f6;color:#475467;border:1px dashed #94a3b8;}
+
+/* Profile Aside */
+.profile-box-card {background:#fff;border-radius:14px;padding:20px;border:1px solid var(--border);}
+.selected-patient-header {display:flex;align-items:center;gap:12px;padding-bottom:16px;border-bottom:1px solid var(--border);margin-bottom:16px;}
+.sel-patient-avatar {width:48px;height:48px;border-radius:12px;background:#eff6ff;color:var(--blue);display:grid;place-items:center;font-weight:800;font-size:16px;}
+.sel-patient-name {font-size:16px;font-weight:800;}
+.sel-patient-sub {font-size:12px;color:var(--muted);margin-top:3px;}
+.patient-stats-grid {display:grid;grid-template-columns:repeat(3, 1fr);gap:15px;margin-bottom:20px;}
+.p-stat-item b {display:block;font-size:15px;color:var(--text);font-weight:800;}
+.p-stat-item span {font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700;margin-top:2px;display:block;}
+
+/* Filter Row */
+.filter-row{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;}
+.filter-row .form-control{width:auto;flex:1;min-width:150px;}
+
+/* Toast */
+.toast{position:fixed;right:22px;bottom:22px;background:#172033;color:#fff;padding:14px 20px;border-radius:11px;font-size:13px;font-weight:600;opacity:0;transform:translateY(15px);pointer-events:none;transition:.3s;z-index:10000;display:flex;align-items:center;gap:10px;box-shadow:0 10px 30px rgba(0,0,0,0.2);}
+.toast.show{opacity:1;transform:none}
+.toast.error{background:var(--red);}
+
+/* Modals */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,0.6);backdrop-filter:blur(3px);z-index:9999;align-items:center;justify-content:center;padding:15px;}
+.modal{background:var(--card);border-radius:var(--radius);width:100%;max-width:520px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);animation:modalIn 0.3s ease;display:flex;flex-direction:column;max-height:90vh;}
+@keyframes modalIn{from{transform:scale(0.95);opacity:0;}to{transform:scale(1);opacity:1;}}
+.modal-header{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+.modal-header h2{font-size:18px;}
+.close-btn{background:none;border:none;font-size:26px;color:var(--muted);line-height:1;width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:0.2s;}
+.close-btn:hover{background:#f1f5f9;color:var(--text);}
+.modal-body{padding:24px;overflow-y:auto;}
+.modal-footer{padding:20px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px;background:#f8fafc;border-radius:0 0 var(--radius) var(--radius);}
+
+/* --- MOBILE RESPONSIVE OPTIMIZATION --- */
+.hide-mobile { display: inline-block; }
+@media(max-width: 992px){
+  .stats, .doctors{grid-template-columns:repeat(2,1fr)}
+  .queue-layout{grid-template-columns:1fr}
+}
+@media(max-width: 760px){
+  .hide-mobile { display: none !important; }
+  
+  /* Bottom Navigation - Fixed to bottom */
+  .sidebar{flex-direction:row;justify-content:space-around;align-items:center;bottom:0;top:auto;width:100%;height:70px;padding:0;z-index:900;border-right:none;border-top:1px solid var(--border);padding-bottom:env(safe-area-inset-bottom);background:rgba(255,255,255,0.95);backdrop-filter:blur(10px);box-shadow:0 -4px 15px rgba(0,0,0,0.05);}
+  .brand, .sidebar-bottom{display:none;}
+  .nav{display:flex;flex-direction:row;width:100%;height:100%;gap:0;overflow-x:auto;}
+  .nav button{flex-direction:column;justify-content:center;gap:4px;flex:1;padding:6px;border-radius:0;font-size:10px;font-weight:700;color:#94a3b8;min-width:60px;}
+  .nav button.active{background:transparent;color:var(--blue);border-top:3px solid var(--blue);}
+  .nav button .icon{font-size:22px !important;margin-bottom:2px;}
+  
+  /* Main Container */
+  .main{margin-left:0; max-width:100vw;}
+  .header{padding:0 15px;height:auto;min-height:65px;flex-wrap:wrap;padding-top:10px;padding-bottom:10px;gap:10px;box-shadow:0 2px 10px rgba(0,0,0,0.02);}
+  .clinic-sub,.profile-info{display:none}
+  .clinic-status{border:0;padding:0;}
+  .header-right{width:100%;justify-content:space-between;border-top:1px solid var(--border);padding-top:10px;}
+  
+  /* Content Adjustments */
+  .content{padding:15px; padding-bottom:100px;} /* Extra padding for bottom nav */
+  .page-head{flex-direction:column;align-items:flex-start;gap:12px;margin-bottom:20px;}
+  .page-head h1{font-size:22px}
+  
+  /* Dashboard Grids */
+  .stats { grid-template-columns: repeat(2, 1fr); gap:12px; }
+  .stat { padding: 15px; }
+  .stat-value { font-size: 24px; }
+  .doctors, .queue-layout{grid-template-columns:1fr; min-width:0; width:100%;}
+  
+  /* Queue Specifics */
+  .search-box { width: 100%; }
+  .queue-card, .patient-card { padding: 15px; }
+  
+  /* WIDE BUTTONS FIX */
+  .queue-actions{flex-direction:column; width:100%; gap:12px; margin-top:20px;}
+  .action-btn{width:100%; font-size:15px; padding:15px; border-radius:12px;}
+  
+  /* Current Token Resize */
+  #current-token-box > div:first-child { font-size: 48px !important; }
+  
+  /* Skipped Patients Adjust */
+  .skipped-patient { flex-direction:column; align-items:flex-start; gap:12px; padding:15px; background:#fff; border-radius:12px; border:1px solid var(--border); box-shadow:var(--shadow-sm); }
+  .skipped-patient .recall-btn { width: 100%; padding: 14px; font-size: 14px; }
+  
+  /* Filters */
+  .filter-row{flex-direction:column;gap:12px;}
+  .filter-row .form-control, .filter-row .btn-primary{width:100%; min-width:100%;}
+  
+  /* Modals */
+  .modal{margin:15px;width:calc(100% - 30px);max-height:calc(100vh - 30px);border-radius:18px;}
+  .modal-header, .modal-footer{padding:15px 20px;}
+  .modal-body{padding:20px;}
+}
+</style>
+</head>
+<body>
+
+<div id="toast" class="toast"></div>
+
+<!-- LOGIN SCREEN -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-header">
+      <div class="brand-icon">✚</div>
+      <h2>Clinic Portal</h2>
+      <p>Secure Admin Access</p>
+    </div>
+    <form id="login-form">
+      <div class="form-group">
+        <label>Admin Username</label>
+        <input type="text" id="email" class="form-control" required placeholder="admin@clinic.com">
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="password" class="form-control" required placeholder="••••••••">
+      </div>
+      <button type="submit" class="btn-primary" style="margin-top:10px;">Sign In</button>
+    </form>
+  </div>
+</div>
+
+<!-- MAIN APP SCREEN -->
+<div id="app-screen">
+  <div class="app">
     
-    # Check if this is the Admin
-    if username == admin_email:
-        clinic = db.query(Clinic).first()
-        return AdminUser(email=admin_email, clinic=clinic)
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+      <div class="brand"><div class="brand-icon">✚</div><div><h2 id="sidebar-clinic-name">ABC Clinic</h2><small>Admin Portal</small></div></div>
+      <nav class="nav">
+        <button class="active" onclick="switchTab('dashboard')"><span class="icon" style="font-size:18px;">⌂</span> <span class="nav-text">Dashboard</span></button>
+        <button onclick="switchTab('queue')"><span class="icon" style="font-size:18px;">🎫</span> <span class="nav-text">Queue</span></button>
+        <button onclick="switchTab('patients')"><span class="icon" style="font-size:18px;">♙</span> <span class="nav-text">Patients</span></button>
+        <button onclick="switchTab('history')"><span class="icon" style="font-size:18px;">📋</span> <span class="nav-text">History</span></button>
+        <button onclick="switchTab('reminders')"><span class="icon" style="font-size:18px;">🔔</span> <span class="nav-text">Reminders</span></button>
+      </nav>
+      <div class="sidebar-bottom"><button class="logout" onclick="logout()">↪ Logout</button></div>
+    </aside>
 
-    # Check if this is a real Doctor
-    doc = db.query(Doctor).filter(Doctor.email == username, Doctor.is_active == True).first()
-    if not doc:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive")
-    return doc
+    <main class="main">
+      <!-- HEADER -->
+      <header class="header">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div><div class="clinic-title" id="header-date">Today</div><div class="clinic-sub">Clinic Token Management</div></div>
+        </div>
+        <div class="header-right">
+          <button class="btn-head" onclick="refreshCurrentData()" style="padding:6px 12px; margin-right:5px; border:1px solid var(--border); background:var(--bg-body); border-radius:8px;" title="Refresh Data">
+             <span style="font-size: 16px;">↻</span> <span class="hide-mobile" style="margin-left: 4px;">Refresh</span>
+          </button>
+          
+          <div class="clinic-status">
+            <span class="status-dot" id="clinicDot"></span><span class="status-label" id="clinicLabel">LOADING</span>
+            <label class="switch" style="margin-left:8px;"><input type="checkbox" id="clinic-toggle-cb" onchange="toggleClinicStatus(this.checked)"><span class="slider"></span></label>
+          </div>
+          <div class="profile">
+            <div class="avatar" id="admin-initial">A</div>
+            <div class="profile-info"><b id="admin-name">Admin</b><small>Administrator</small></div>
+          </div>
+        </div>
+      </header>
 
-# ==========================================
-# 2. STARTUP (Safe Migration)
-# ==========================================
-@app.on_event("startup")
-def setup_database_and_admin():
-    db = SessionLocal()
-    try:
-        # Ensure Clinic Exists
-        clinic = db.query(Clinic).first()
-        if not clinic:
-            clinic = Clinic(
-                name="System Default Clinic",
-                whatsapp_phone_number_id=os.getenv("WHATSAPP_PHONE_NUMBER_ID", "default_phone_id"),
-                is_online=True
-            )
-            db.add(clinic)
-            db.commit()
-
-        # SAFEGUARD: Mark old Admin as inactive in Doctor table so they vanish from UI and WhatsApp
-        admin_email = os.getenv("ADMIN_USERNAME", "admin")
-        old_admin = db.query(Doctor).filter(Doctor.email == admin_email).first()
-        if old_admin and old_admin.is_active:
-            old_admin.is_active = False
-            old_admin.is_online = False
-            db.commit()
-    finally:
-        db.close()
-
-# ==========================================
-# 3. ROOT & HEALTH ENDPOINTS
-# ==========================================
-@app.get("/", response_class=HTMLResponse)
-def serve_frontend():
-    if os.path.exists("index.html"):
-        return FileResponse("index.html")
-    return HTMLResponse(content="<h1>Frontend UI missing (index.html not found)</h1>", status_code=404)
-
-@app.get("/health")
-def health_check():
-    return {"status": "healthy"}
-
-# ==========================================
-# 4. LOGIN & AUTHENTICATION ENDPOINTS
-# ==========================================
-@app.post("/auth/login", response_model=TokenSchema)
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    admin_email = os.getenv("ADMIN_USERNAME", "admin")
-    admin_password = os.getenv("ADMIN_PASSWORD", "ChangeThisAdminPassword123!")
-
-    # 1. Admin Login (100% Reliable via ENV)
-    if form_data.username == admin_email and form_data.password == admin_password:
-        access_token = create_access_token(data={"sub": admin_email, "role": "admin"})
-        return {"access_token": access_token, "token_type": "bearer"}
-
-    # 2. Doctor Login (For Future Proofing)
-    doc = db.query(Doctor).filter(Doctor.email == form_data.username, Doctor.is_active == True).first()
-    if doc and verify_password(form_data.password, doc.password_hash):
-        access_token = create_access_token(data={"sub": doc.email, "role": "doctor"})
-        return {"access_token": access_token, "token_type": "bearer"}
-
-    raise HTTPException(status_code=400, detail="Invalid username or password")
-
-@app.get("/auth/me")
-def get_me(current_user = Depends(get_current_active_user)):
-    """This will now securely return HTTP 200 for both Admin and Doctors."""
-    return {
-        "id": current_user.id,
-        "clinic_id": current_user.clinic_id,
-        "name": current_user.name,
-        "email": current_user.email,
-        "clinic_name": current_user.clinic.name if current_user.clinic else "Clinic",
-        "is_online": True,
-        "role": "admin" if current_user.id == 0 else "doctor"
-    }
-
-# ==========================================
-# 5. DOCTORS ENDPOINTS
-# ==========================================
-@app.post("/doctors/add", status_code=status.HTTP_201_CREATED)
-def add_doctor(payload: DoctorCreateSchema, db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
-    if current_user.id != 0:
-        raise HTTPException(status_code=403, detail="Only the system administrator can add doctors.")
-
-    name = payload.name.strip()
-    email = payload.email.strip().lower()
-    
-    if not name: raise HTTPException(status_code=400, detail="Doctor name is required.")
-    if not re.match(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$", email):
-        raise HTTPException(status_code=400, detail="Invalid email format.")
-
-    existing_doc = db.query(Doctor).filter(func.lower(Doctor.email) == email).first()
-    if existing_doc or email == os.getenv("ADMIN_USERNAME", "admin"):
-        raise HTTPException(status_code=409, detail="A doctor or admin with this email already exists.")
-
-    new_doc = Doctor(
-        clinic_id=current_user.clinic_id,
-        name=name,
-        email=email,
-        password_hash=get_password_hash(payload.password),
-        is_active=True,
-        is_online=True
-    )
-    
-    db.add(new_doc)
-    db.commit()
-    db.refresh(new_doc)
-
-    return {"message": "Doctor added successfully", "doctor": {"id": new_doc.id, "name": new_doc.name, "email": new_doc.email}}
-
-@app.get("/doctors", response_model=List[DoctorOutSchema])
-def get_all_doctors(db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
-    admin_email = os.getenv("ADMIN_USERNAME", "admin")
-    doctors = db.query(Doctor).filter(Doctor.clinic_id == current_user.clinic_id, Doctor.is_active == True, Doctor.email != admin_email).all()
-    return [DoctorOutSchema(id=d.id, clinic_id=d.clinic_id, name=d.name, email=d.email, clinic_name=d.clinic.name, is_online=d.is_online) for d in doctors]
-
-@app.put("/doctors/{doctor_id}/status", response_model=StatusUpdateSchema)
-def update_doctor_status(doctor_id: int, payload: StatusUpdateSchema, db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
-    doc = db.query(Doctor).filter(Doctor.id == doctor_id, Doctor.clinic_id == current_user.clinic_id).first()
-    if not doc: raise HTTPException(status_code=404, detail="Doctor not found")
-    doc.is_online = payload.is_online
-    db.commit()
-    return {"is_online": doc.is_online}
-
-# ==========================================
-# 6. QUEUE & CLINIC MANAGEMENT
-# ==========================================
-@app.get("/doctor/{doctor_id}/queue")
-def get_specific_doctor_queue(doctor_id: int, db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
-    target_doctor = db.query(Doctor).filter(Doctor.id == doctor_id, Doctor.clinic_id == current_user.clinic_id).first()
-    if not target_doctor: raise HTTPException(status_code=404, detail="Doctor not found")
-
-    today = get_today_ist()
-    visits = db.query(Visit).filter(Visit.doctor_id == doctor_id, Visit.visit_date == today).order_by(Visit.token_number.asc()).all()
-    
-    current_visit = next((v for v in visits if v.status == VisitStatus.CURRENT), None)
-    waiting_visits = [v for v in visits if v.status == VisitStatus.WAITING]
-    skipped_visits = [v for v in visits if v.status == VisitStatus.SKIPPED]
-
-    def format_visit(v):
-        if not v: return None
-        return {"id": v.id, "token_number": v.token_number, "patient_name": v.patient.name, "patient_phone": v.patient.phone_number or v.patient.whatsapp_number, "visit_reason": v.visit_reason, "doctor_name": f"Dr. {target_doctor.name}"}
-
-    return {
-        "current_token": format_visit(current_visit),
-        "next_patient": format_visit(waiting_visits[0]) if waiting_visits else None,
-        "skipped_patients": [format_visit(v) for v in skipped_visits],
-        "waiting_count": len(waiting_visits),
-        "completed_count": sum(1 for v in visits if v.status == VisitStatus.COMPLETED),
-        "today_total": len(visits)
-    }
-
-@app.post("/doctor/{doctor_id}/next-patient")
-def next_patient(doctor_id: int, db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
-    today = get_today_ist()
-    curr_visit = db.query(Visit).filter(Visit.doctor_id == doctor_id, Visit.visit_date == today, Visit.status == VisitStatus.CURRENT).first()
-    if curr_visit:
-        curr_visit.status = VisitStatus.COMPLETED
-        curr_visit.completed_at = datetime.utcnow()
-
-    next_visit = db.query(Visit).filter(Visit.doctor_id == doctor_id, Visit.visit_date == today, Visit.status == VisitStatus.WAITING).order_by(Visit.token_number.asc()).first()
-    if next_visit:
-        next_visit.status = VisitStatus.CURRENT
-        db.commit()
-        return {"message": f"Token #{next_visit.token_number} is now CURRENT"}
-    db.commit()
-    return {"message": "No waiting patients remaining"}
-
-@app.post("/visit/{visit_id}/{action}")
-def manage_visit_status(visit_id: int, action: str, db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
-    visit = db.query(Visit).filter(Visit.id == visit_id).first()
-    if not visit: raise HTTPException(404, detail="Visit not found")
-
-    if action == "accept" or action == "recall":
-        today = get_today_ist()
-        curr_visit = db.query(Visit).filter(Visit.doctor_id == visit.doctor_id, Visit.visit_date == today, Visit.status == VisitStatus.CURRENT).first()
-        if curr_visit:
-            curr_visit.status = VisitStatus.COMPLETED
-            curr_visit.completed_at = datetime.utcnow()
-        visit.status = VisitStatus.CURRENT
-    elif action == "skip":
-        visit.status = VisitStatus.SKIPPED
-    elif action == "cancel":
-        visit.status = VisitStatus.CANCELLED
-        visit.cancelled_at = datetime.utcnow()
-    else:
-        raise HTTPException(400, detail="Invalid action")
-    
-    db.commit()
-    return {"message": f"Token #{visit.token_number} status updated to {visit.status}"}
-
-@app.post("/doctor/add-walkin")
-def add_walkin_patient(payload: ManualPatientAddSchema, db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
-    patient = db.query(Patient).filter(Patient.clinic_id == current_user.clinic_id, Patient.whatsapp_number == payload.whatsapp_number).first()
-    if not patient:
-        patient = Patient(clinic_id=current_user.clinic_id, name=payload.name, whatsapp_number=payload.whatsapp_number, phone_number=payload.phone_number, age=payload.age, gender=payload.gender)
-        db.add(patient)
-        db.commit()
-        db.refresh(patient)
-    try:
-        visit = generate_daily_token(db, current_user.clinic_id, payload.doctor_id, patient.id, payload.visit_reason)
-        return {"message": "Patient added successfully", "token_number": visit.token_number}
-    except Exception:
-        raise HTTPException(status_code=500, detail="Token generation error.")
-
-@app.get("/doctor/today", response_model=DashboardSummaryOutSchema)
-def get_today_summary(db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
-    today = get_today_ist()
-    visits = db.query(Visit).filter(Visit.clinic_id == current_user.clinic_id, Visit.visit_date == today).order_by(Visit.token_number.asc()).all()
-    clinic = db.query(Clinic).filter(Clinic.id == current_user.clinic_id).first()
-    return DashboardSummaryOutSchema(
-        clinic_name=clinic.name, today_date=today.strftime("%d %B %Y"), 
-        waiting_count=sum(1 for v in visits if v.status == VisitStatus.WAITING), 
-        completed_count=sum(1 for v in visits if v.status == VisitStatus.COMPLETED),
-        cancelled_count=sum(1 for v in visits if v.status == VisitStatus.CANCELLED), 
-        total_count=len(visits)
-    )
-
-@app.get("/clinic/status", response_model=StatusUpdateSchema)
-def get_clinic_status(db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
-    clinic = db.query(Clinic).filter(Clinic.id == current_user.clinic_id).first()
-    return {"is_online": clinic.is_online}
-
-@app.put("/clinic/status", response_model=StatusUpdateSchema)
-def update_clinic_status(payload: StatusUpdateSchema, db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
-    clinic = db.query(Clinic).filter(Clinic.id == current_user.clinic_id).first()
-    clinic.is_online = payload.is_online
-    db.commit()
-    return {"is_online": clinic.is_online}
-
-@app.get("/doctor/patients-summary", response_model=PatientSummarySchema)
-def get_patients_summary(query: Optional[str] = None, start_date: Optional[str] = None, end_date: Optional[str] = None, db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
-    pq = db.query(Patient).filter(Patient.clinic_id == current_user.clinic_id)
-    if query: pq = pq.filter(or_(Patient.name.ilike(f"%{query}%"), Patient.whatsapp_number.ilike(f"%{query}%")))
-    patient_ids = {p.id for p in pq.all()}
-    if not patient_ids: return PatientSummarySchema(total_patients=0, new_patients=0, returning_patients=0, total_visits=0, completed_visits=0, cancelled_visits=0, waiting_visits=0)
-
-    vq = db.query(Visit).filter(Visit.clinic_id == current_user.clinic_id, Visit.patient_id.in_(patient_ids))
-    if start_date: vq = vq.filter(Visit.visit_date >= datetime.strptime(start_date, "%Y-%m-%d").date())
-    if end_date: vq = vq.filter(Visit.visit_date <= datetime.strptime(end_date, "%Y-%m-%d").date())
-    visits = vq.all()
-
-    return PatientSummarySchema(
-        total_patients=len({v.patient_id for v in visits}), new_patients=0, returning_patients=0,
-        total_visits=len(visits), completed_visits=sum(1 for v in visits if v.status == VisitStatus.COMPLETED),
-        cancelled_visits=sum(1 for v in visits if v.status == VisitStatus.CANCELLED),
-        waiting_visits=sum(1 for v in visits if v.status in [VisitStatus.WAITING, VisitStatus.CURRENT])
-    )
-
-@app.get("/doctor/patients", response_model=List[PatientOutSchema])
-def search_patients(query: Optional[str] = None, start_date: Optional[str] = None, end_date: Optional[str] = None, db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
-    q = db.query(Patient).filter(Patient.clinic_id == current_user.clinic_id)
-    if query: q = q.filter(or_(Patient.name.ilike(f"%{query}%"), Patient.whatsapp_number.ilike(f"%{query}%"), Patient.phone_number.ilike(f"%{query}%")))
-    patients = q.order_by(Patient.id.desc()).all()
-    res = []
-    
-    s_date = datetime.strptime(start_date, "%Y-%m-%d").date() if start_date else None
-    e_date = datetime.strptime(end_date, "%Y-%m-%d").date() if end_date else None
-    
-    for p in patients:
-        vq = db.query(Visit).filter(Visit.patient_id == p.id)
-        if s_date: vq = vq.filter(Visit.visit_date >= s_date)
-        if e_date: vq = vq.filter(Visit.visit_date <= e_date)
-        visits = vq.order_by(Visit.id.asc()).all()
-        if not visits and (s_date or e_date): continue
+      <section class="content">
         
-        res.append(PatientOutSchema(
-            id=p.id, name=p.name, whatsapp_number=p.whatsapp_number, phone_number=p.phone_number, age=p.age, gender=p.gender, created_at=p.created_at, visit_count=len(visits),
-            first_visit_date=visits[0].visit_date if visits else None, last_visit_date=visits[-1].visit_date if visits else None,
-            last_token_number=visits[-1].token_number if visits else None, last_visit_reason=visits[-1].visit_reason if visits else None,
-            total_completed=sum(1 for v in visits if v.status == VisitStatus.COMPLETED), total_cancelled=sum(1 for v in visits if v.status == VisitStatus.CANCELLED), 
-            total_waiting=sum(1 for v in visits if v.status in [VisitStatus.WAITING, VisitStatus.CURRENT])
-        ))
-    return res
+        <!-- DASHBOARD TAB -->
+        <div id="tab-dashboard" class="tab-content active">
+          <div class="page-head">
+            <div><h1 id="welcome-text">Dashboard Overview</h1><p>Real-time clinic metrics and doctor statuses</p></div>
+            <button class="btn-head primary" onclick="openAddDoctorModal()">+ Add Doctor</button>
+          </div>
 
-@app.get("/doctor/patients/{patient_id}/history", response_model=List[VisitOutSchema])
-def get_patient_history(patient_id: int, db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
-    patient = db.query(Patient).filter(Patient.id == patient_id, Patient.clinic_id == current_user.clinic_id).first()
-    if not patient: raise HTTPException(status_code=404, detail="Patient not found")
-    visits = db.query(Visit).filter(Visit.patient_id == patient_id, Visit.clinic_id == current_user.clinic_id).order_by(Visit.id.desc()).all()
-    return [
-        VisitOutSchema(
-            id=v.id, token_number=v.token_number, visit_date=v.visit_date, visit_reason=v.visit_reason, status=v.status, created_at=v.created_at, completed_at=v.completed_at, cancelled_at=v.cancelled_at, patient_id=patient.id, doctor_id=v.doctor_id, doctor_name=v.doctor.name if v.doctor else "Unknown", patient_name=patient.name, patient_age=patient.age, patient_gender=patient.gender, patient_phone=patient.phone_number or patient.whatsapp_number
-        ) for v in visits
-    ]
+          <div class="stats">
+            <div class="stat"><div class="stat-label">Total Tokens</div><div class="stat-value" id="dash-total">-</div><div class="stat-note">Generated today</div></div>
+            <div class="stat"><div class="stat-label" style="color:var(--orange)">Waiting</div><div class="stat-value" id="dash-waiting" style="color:var(--orange)">-</div><div class="stat-note">Currently in queues</div></div>
+            <div class="stat"><div class="stat-label" style="color:var(--green)">Completed</div><div class="stat-value" id="dash-completed" style="color:var(--green)">-</div><div class="stat-note">Successfully finished</div></div>
+            <div class="stat"><div class="stat-label" style="color:var(--red)">Cancelled</div><div class="stat-value" id="dash-cancelled" style="color:var(--red)">-</div><div class="stat-note">Dropped tokens</div></div>
+          </div>
 
-@app.get("/doctor/tokens", response_model=List[VisitOutSchema])
-def get_tokens_by_date(date_str: Optional[str] = None, status_filter: Optional[str] = "ALL", db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
-    req_date = datetime.strptime(date_str, "%Y-%m-%d").date() if date_str else get_today_ist()
-    q = db.query(Visit).filter(Visit.clinic_id == current_user.clinic_id, Visit.visit_date == req_date)
-    if status_filter and status_filter != "ALL": q = q.filter(Visit.status == status_filter)
-    visits = q.order_by(Visit.token_number.asc()).all()
-    return [
-        VisitOutSchema(
-            id=v.id, token_number=v.token_number, visit_date=v.visit_date, visit_reason=v.visit_reason, status=v.status, created_at=v.created_at, completed_at=v.completed_at, cancelled_at=v.cancelled_at, patient_id=v.patient_id, doctor_id=v.doctor_id, doctor_name=v.doctor.name if v.doctor else "Unknown", patient_name=v.patient.name, patient_age=v.patient.age, patient_gender=v.patient.gender, patient_phone=v.patient.phone_number or v.patient.whatsapp_number
-        ) for v in visits
-    ]
+          <div class="section-head"><h2>👨‍⚕️ Active Doctors</h2><span>Click “Manage Queue” to control flow</span></div>
+          <div class="doctors" id="doctors-container">
+            <div class="empty" style="grid-column: 1/-1;">Loading doctors...</div>
+          </div>
+        </div>
 
-# ==========================================
-# 7. WHATSAPP WEBHOOK (Unchanged)
-# ==========================================
-@app.get("/webhook")
-def verify_webhook(request: Request):
-    verify_token = os.getenv("WHATSAPP_VERIFY_TOKEN", "verify_token")
-    mode = request.query_params.get("hub.mode")
-    token = request.query_params.get("hub.verify_token")
-    challenge = request.query_params.get("hub.challenge")
+        <!-- QUEUE TAB -->
+        <div id="tab-queue" class="tab-content">
+          <div class="page-head">
+            <div><h1 id="mainQueueTitle">Doctor-Specific Patient Queue</h1><p id="mainQueueSub">Selected doctor: Not selected</p></div>
+            <button class="btn-head primary" onclick="openWalkinModal()">+ Add Walk-in</button>
+          </div>
 
-    if mode and token:
-        if mode == "subscribe" and token == verify_token:
-            return HTMLResponse(content=challenge, status_code=200)
-        raise HTTPException(status_code=403, detail="Verification failed")
-    return {"status": "webhook endpoint ready"}
+          <div id="queue-empty-state" class="card" style="text-align:center; padding:60px 20px;">
+            <div style="font-size:40px; margin-bottom:15px;">👨‍⚕️</div>
+            <h2>No Doctor Selected</h2>
+            <p class="text-muted" style="margin-top:8px; margin-bottom:20px;">Please select a doctor from the Dashboard to manage their queue.</p>
+            <button class="btn-head" style="margin:0 auto;" onclick="switchTab('dashboard')">Go to Dashboard</button>
+          </div>
 
-@app.post("/webhook")
-async def receive_webhook(request: Request, db: Session = Depends(get_db)):
-    data = await request.json()
-    try:
-        entries = data.get("entry", [])
-        for entry in entries:
-            changes = entry.get("changes", [])
-            for change in changes:
-                value = change.get("value", {})
-                if "statuses" in value: continue
-                    
-                phone_number_id = value.get("metadata", {}).get("phone_number_id")
-                messages = value.get("messages", [])
+          <div id="queue-content-wrapper" style="display:none;">
+            <div class="queue-layout">
+              <!-- Left Column -->
+              <section class="card queue-card">
+                <div class="selected-doctor">
+                  <div><h3 id="queueDoctor">Doctor Name</h3><p id="queueSummary">Loading stats...</p></div>
+                  <input class="search-box" id="patientSearch" placeholder="Search patient...">
+                </div>
 
-                for msg in messages:
-                    msg_id, sender_phone, msg_type = msg.get("id"), msg.get("from"), msg.get("type")
-                    if msg_type == "text" and msg_id and sender_phone and phone_number_id:
-                        msg_body = msg.get("text", {}).get("body", "")
-                        try:
-                            processed_record = ProcessedWebhookEvent(
-                                message_id=msg_id, phone_number_id=phone_number_id,
-                                sender_number=sender_phone, event_type="text"
-                            )
-                            db.add(processed_record)
-                            db.commit()
-                        except IntegrityError:
-                            db.rollback()
-                            continue
-                        
-                        process_whatsapp_message(db, phone_number_id, sender_phone, msg_body, msg_id)
-    except Exception as e:
-        print(f"WEBHOOK ERROR: {str(e)}")
-        traceback.print_exc()
-    return JSONResponse(content={"status": "received"}, status_code=200)
+                <div class="next-patient-card" id="nextPatientCard"></div>
 
-if __name__ == "__main__":
-    import uvicorn
-    port = int(os.environ.get("PORT", 8000))
-    uvicorn.run("main:app", host="0.0.0.0", port=port)
+                <div class="skipped-section" id="skippedSection">
+                  <div class="skipped-head"><h3>⏭️ Skipped Patients</h3><span>Can be recalled anytime</span></div>
+                  <div id="skippedPatients"></div>
+                </div>
+
+                <div class="table-wrap">
+                  <table>
+                    <thead><tr><th>Token</th><th>Patient</th><th>Mobile</th><th>Reason</th><th>Status</th></tr></thead>
+                    <tbody id="queue-table-body"></tbody>
+                  </table>
+                </div>
+              </section>
+
+              <!-- Right Column -->
+              <aside style="display:flex; flex-direction:column; gap:15px;">
+                <!-- Large Current Token Box -->
+                <div class="card" style="padding:26px; text-align:center; border-radius:18px; box-shadow: 0 4px 15px rgba(0,0,0,0.03);">
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                    <div style="display:flex; align-items:center; gap:6px; font-weight:700; font-size:13px; color:var(--text);">
+                      <div class="status-dot" style="width:10px; height:10px; background: var(--red); box-shadow: 0 0 0 4px #fee2e2;"></div> Current Token
+                    </div>
+                    <span style="font-size:11px; color:var(--muted);">Undergoing treatment</span>
+                  </div>
+                  
+                  <div id="current-token-box"></div>
+                </div>
+
+                <div class="profile-box-card">
+                  <div class="section-head" style="margin-bottom:14px;">
+                    <h2>Selected Patient</h2>
+                    <span style="font-size:10px; color:var(--muted); text-transform:uppercase; font-weight:700;">Patient profile</span>
+                  </div>
+                  <div id="queue-profile-box">
+                    <div class="empty" style="padding:30px 0;">Select a patient from the queue table.</div>
+                  </div>
+                </div>
+              </aside>
+            </div>
+          </div>
+        </div>
+
+        <!-- PATIENTS TAB -->
+        <div id="tab-patients" class="tab-content">
+          <div class="page-head">
+            <div><h1>Patient Directory</h1><p>Search and view patient histories</p></div>
+          </div>
+
+          <div class="stats" style="margin-bottom:20px;">
+            <div class="stat"><div class="stat-label">Total Patients</div><div class="stat-value" id="sum-tot-patients">-</div></div>
+            <div class="stat"><div class="stat-label" style="color:var(--blue)">New Patients</div><div class="stat-value" id="sum-new-patients" style="color:var(--blue)">-</div></div>
+            <div class="stat"><div class="stat-label" style="color:var(--green)">Returning</div><div class="stat-value" id="sum-ret-patients" style="color:var(--green)">-</div></div>
+            <div class="stat"><div class="stat-label">Total Visits</div><div class="stat-value" id="sum-tot-visits">-</div></div>
+          </div>
+
+          <div class="card">
+            <div class="filter-row">
+              <input type="text" id="patient-search" class="form-control" placeholder="Search by name or mobile...">
+              <select id="patient-date-filter" class="form-control" onchange="handlePatientDateFilter()">
+                  <option value="ALL">All Time</option>
+                  <option value="TODAY">Today</option>
+                  <option value="WEEK">This Week</option>
+                  <option value="MONTH">This Month</option>
+                  <option value="CUSTOM">Custom Range</option>
+              </select>
+              <input type="date" id="patient-start-date" class="form-control" style="display:none;" onchange="searchPatients()">
+              <input type="date" id="patient-end-date" class="form-control" style="display:none;" onchange="searchPatients()">
+              <button class="btn-primary" style="width:auto; padding:12px 24px;" onclick="searchPatients()">Search</button>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Patient Name</th><th>Mobile</th><th>Age/Gender</th><th>Total Visits</th><th>First Visit</th><th>Last Visit</th></tr></thead>
+                <tbody id="patients-table-body">
+                  <tr><td colspan="6"><div class="empty">Search or load patients...</div></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- HISTORY TAB -->
+        <div id="tab-history" class="tab-content">
+          <div class="page-head">
+            <div><h1>Token History</h1><p>Daily breakdown of all tokens</p></div>
+          </div>
+          <div class="card">
+            <div class="filter-row">
+              <input type="date" id="history-date" class="form-control">
+              <select id="history-doctor" class="form-control">
+                  <option value="ALL">All Doctors</option>
+              </select>
+              <select id="history-filter" class="form-control">
+                  <option value="ALL">All Statuses</option>
+                  <option value="WAITING">Waiting</option>
+                  <option value="CURRENT">Current</option>
+                  <option value="COMPLETED">Completed</option>
+                  <option value="SKIPPED">Skipped</option>
+                  <option value="CANCELLED">Cancelled</option>
+              </select>
+              <button class="btn-primary" style="width:auto; padding:12px 24px;" onclick="loadTokenHistory()">Filter History</button>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Token</th><th>Patient Name</th><th>Doctor</th><th>Reason</th><th>Status</th></tr></thead>
+                <tbody id="history-table-body">
+                  <tr><td colspan="5"><div class="empty">Select a date to view tokens...</div></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- REMINDERS TAB -->
+        <div id="tab-reminders" class="tab-content">
+          <div class="page-head">
+            <div><h1>🔔 Token Reminders</h1><p>Configure automatic WhatsApp token alerts</p></div>
+          </div>
+          <div class="card" style="max-width: 600px;">
+            <div class="section-head" style="margin-bottom: 20px;">
+              <h2>Reminder System</h2>
+            </div>
+            
+            <div style="display:flex; justify-content:space-between; align-items:center; padding-bottom:15px; border-bottom:1px solid var(--border); margin-bottom:15px;">
+              <div>
+                <strong style="font-size:14px; color:var(--text);">Enable WhatsApp Reminders</strong>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="rem-global-toggle" checked>
+                <span class="slider"></span>
+              </label>
+            </div>
+
+            <div style="padding-bottom:15px; border-bottom:1px solid var(--border); margin-bottom:15px;">
+              <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+                <input type="checkbox" id="rem-near-turn" style="width:16px; height:16px;" checked>
+                <strong style="font-size:14px; color:var(--text);">Near Turn Reminder</strong>
+              </div>
+              <div style="padding-left: 26px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                <label style="font-size:13px; color:var(--muted);">Notify when patients ahead:</label>
+                <select id="rem-patients-ahead" class="form-control" style="width:auto; padding:8px 12px; min-width: 80px;">
+                  <option value="1">1</option>
+                  <option value="2" selected>2</option>
+                  <option value="3">3</option>
+                  <option value="4">4</option>
+                  <option value="5">5</option>
+                </select>
+              </div>
+            </div>
+
+            <div style="padding-bottom:20px; margin-bottom:20px;">
+              <div style="display:flex; align-items:center; gap:10px;">
+                <input type="checkbox" id="rem-your-turn" style="width:16px; height:16px;" checked>
+                <strong style="font-size:14px; color:var(--text);">Your Turn Reminder</strong>
+              </div>
+            </div>
+
+            <button class="btn-primary" style="width:auto; padding:12px 24px;" onclick="saveReminderSettings()">Save Settings</button>
+          </div>
+        </div>
+
+      </section>
+    </main>
+  </div>
+</div>
+
+<!-- MODALS -->
+
+<!-- Walk-in Modal -->
+<div class="modal-overlay" id="walkin-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>✚ Add Walk-in Patient</h2>
+      <button class="close-btn" onclick="closeWalkinModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <form id="walkin-form">
+        <div class="form-group">
+            <label>Select Doctor</label>
+            <select id="walkin-doctor" class="form-control" required></select>
+        </div>
+        <div class="form-group">
+            <label>WhatsApp / Mobile Number</label>
+            <input type="tel" id="walkin-phone" class="form-control" placeholder="e.g. 919876543210" required>
+        </div>
+        <div class="form-group">
+            <label>Full Name</label>
+            <input type="text" id="walkin-name" class="form-control" placeholder="Patient Name" required>
+        </div>
+        <div style="display:flex; gap:15px;">
+            <div class="form-group" style="flex:1;">
+                <label>Age</label>
+                <input type="number" id="walkin-age" class="form-control" min="0" max="120" placeholder="e.g. 25" required>
+            </div>
+            <div class="form-group" style="flex:1;">
+                <label>Gender</label>
+                <select id="walkin-gender" class="form-control" required>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+            <label>Reason for Visit</label>
+            <input type="text" id="walkin-reason" class="form-control" placeholder="e.g. Fever, Checkup" required>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-head" onclick="closeWalkinModal()">Cancel</button>
+      <button class="btn-primary" style="width:auto; padding:10px 20px;" onclick="document.getElementById('walkin-form').requestSubmit()">Generate Token</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Doctor Modal -->
+<div class="modal-overlay" id="add-doctor-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>👨‍⚕️ Add New Doctor</h2>
+      <button class="close-btn" onclick="closeAddDoctorModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <form id="add-doctor-form">
+        <div class="form-group">
+            <label>Doctor Name</label>
+            <input type="text" id="doc-name" class="form-control" placeholder="e.g. Rajesh Sharma" required>
+        </div>
+        <div class="form-group">
+            <label>Email (Unique Login ID)</label>
+            <input type="email" id="doc-email" class="form-control" placeholder="dr.rajesh@clinic.com" required>
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+            <label>Password</label>
+            <input type="password" id="doc-password" class="form-control" placeholder="••••••••" required>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-head" onclick="closeAddDoctorModal()">Cancel</button>
+      <button class="btn-primary" style="width:auto; padding:10px 20px;" onclick="document.getElementById('add-doctor-form').requestSubmit()">Add Doctor</button>
+    </div>
+  </div>
+</div>
+
+<!-- Patient Profile Modal -->
+<div class="modal-overlay" id="patient-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>👤 Patient Details</h2>
+      <button class="close-btn" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body" style="padding-top:10px;">
+      <div id="modal-patient-info"></div>
+      <div style="font-size:12px;font-weight:800;margin-bottom:10px;margin-top:20px;text-transform:uppercase;color:var(--muted);">Visit History Timeline</div>
+      <div id="modal-timeline-body"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/**
+ * CLINIC TOKEN MANAGEMENT SYSTEM
+ */
+
+const API_BASE = window.location.origin;
+let authToken = localStorage.getItem("token") || "";
+
+let allDoctors = [];
+let currentPatientsList = [];
+let selectedDoctorForQueue = null;
+let currentQueueTokens = [];
+
+document.getElementById('header-date').innerText = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' });
+
+// --- UTILS ---
+function showToast(message, isError=false){
+  const t=document.getElementById("toast");
+  t.innerHTML = isError ? `⚠️ ${message}` : `✓ ${message}`;
+  if(isError) t.classList.add("error"); else t.classList.remove("error");
+  t.classList.add("show");
+  clearTimeout(window.tt);
+  window.tt=setTimeout(()=>t.classList.remove("show"), 3000);
+}
+
+function getStatusBadge(status) {
+  const s = status.toUpperCase();
+  if(s === 'WAITING') return `<span class="badge waiting">● WAITING</span>`;
+  if(s === 'CURRENT') return `<span class="badge current">● CURRENT</span>`;
+  if(s === 'COMPLETED') return `<span class="badge completed">● COMPLETED</span>`;
+  if(s === 'CANCELLED') return `<span class="badge cancelled">● CANCELLED</span>`;
+  if(s === 'SKIPPED') return `<span class="badge skipped">● SKIPPED</span>`;
+  return `<span class="badge">${status}</span>`;
+}
+
+// --- GLOBAL REFRESH ---
+function refreshCurrentData() {
+    loadClinicStatus();
+    loadDashboardSummary();
+    loadDoctors();
+    if(selectedDoctorForQueue && document.getElementById('tab-queue').classList.contains('active')) {
+        loadQueueData();
+    }
+    if(document.getElementById('tab-patients').classList.contains('active')) {
+        searchPatients();
+    }
+    if(document.getElementById('tab-history').classList.contains('active')) {
+        loadTokenHistory();
+    }
+    showToast("Data refreshed successfully");
+}
+
+// --- AUTHENTICATION ---
+document.getElementById("login-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const formData = new URLSearchParams();
+    formData.append("username", document.getElementById("email").value);
+    formData.append("password", document.getElementById("password").value);
+
+    try {
+        const res = await fetch(`${API_BASE}/auth/login`, {
+            method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: formData
+        });
+        if (!res.ok) throw new Error("Invalid credentials");
+        const data = await res.json();
+        authToken = data.access_token;
+        localStorage.setItem("token", authToken);
+        initDashboard();
+        showToast("Logged in successfully");
+    } catch (err) { showToast(err.message, true); }
+});
+
+function logout() {
+    localStorage.removeItem("token");
+    location.reload();
+}
+
+async function initDashboard() {
+    if (!authToken) return;
+    try {
+        const res = await fetch(`${API_BASE}/auth/me`, { headers: { "Authorization": `Bearer ${authToken}` } });
+        if (!res.ok) throw new Error("Session expired");
+        const admin = await res.json();
+
+        document.getElementById("login-screen").style.display = "none";
+        document.getElementById("app-screen").style.display = "block";
+        
+        document.getElementById("sidebar-clinic-name").innerText = admin.clinic_name;
+        document.getElementById("admin-name").innerText = admin.name;
+        document.getElementById("admin-initial").innerText = admin.name.charAt(0).toUpperCase();
+
+        loadClinicStatus();
+        loadDashboardSummary();
+        loadDoctors();
+        loadReminderSettings();
+    } catch (err) { logout(); }
+}
+
+// --- NAVIGATION ---
+function switchTab(tabName) {
+    document.querySelectorAll(".nav button").forEach(el => el.classList.remove("active"));
+    document.querySelectorAll(".tab-content").forEach(el => el.classList.remove("active"));
+
+    const btns = document.querySelectorAll(".nav button");
+    for(let b of btns) { if(b.getAttribute('onclick').includes(tabName)) b.classList.add('active'); }
+
+    document.getElementById(`tab-${tabName}`).classList.add("active");
+
+    if (tabName === 'dashboard') { loadDashboardSummary(); loadDoctors(); }
+    if (tabName === 'queue') renderQueueState();
+    if (tabName === 'patients') handlePatientDateFilter();
+    if (tabName === 'history') {
+        if(!document.getElementById("history-date").value) document.getElementById("history-date").valueAsDate = new Date();
+        loadTokenHistory();
+    }
+}
+
+// --- CLINIC STATUS ---
+async function loadClinicStatus() {
+    try {
+        const res = await fetch(`${API_BASE}/clinic/status`, { headers: { "Authorization": `Bearer ${authToken}` } });
+        const data = await res.json();
+        updateClinicToggleUI(data.is_online);
+    } catch (err) { console.error("Failed to load clinic status"); }
+}
+
+async function toggleClinicStatus(isOnline) {
+    try {
+        const res = await fetch(`${API_BASE}/clinic/status`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${authToken}` },
+            body: JSON.stringify({ is_online: isOnline })
+        });
+        if(res.ok) {
+            updateClinicToggleUI(isOnline);
+            showToast(`Clinic is now ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
+        }
+    } catch (err) { 
+        showToast("Failed to update status", true); 
+        document.getElementById("clinic-toggle-cb").checked = !isOnline; 
+    }
+}
+
+function updateClinicToggleUI(isOnline) {
+    document.getElementById("clinic-toggle-cb").checked = isOnline;
+    document.getElementById("clinicLabel").textContent = isOnline ? "ONLINE" : "OFFLINE";
+    document.getElementById("clinicDot").classList.toggle("off", !isOnline);
+}
+
+// --- DASHBOARD (Stats & Doctors) ---
+async function loadDashboardSummary() {
+    try {
+        const res = await fetch(`${API_BASE}/doctor/today`, { headers: { "Authorization": `Bearer ${authToken}` } });
+        if(res.ok) {
+            const data = await res.json();
+            document.getElementById("dash-total").innerText = data.total_count || 0;
+            document.getElementById("dash-waiting").innerText = data.waiting_count || 0;
+            document.getElementById("dash-completed").innerText = data.completed_count || 0;
+            document.getElementById("dash-cancelled").innerText = data.cancelled_count || 0;
+        }
+    } catch (err) {}
+}
+
+async function loadDoctors() {
+    try {
+        const res = await fetch(`${API_BASE}/doctors`, { headers: { "Authorization": `Bearer ${authToken}` } });
+        if(!res.ok) throw new Error();
+        allDoctors = await res.json();
+        
+        const histDocSelect = document.getElementById("history-doctor");
+        histDocSelect.innerHTML = '<option value="ALL">All Doctors</option>';
+        allDoctors.forEach(doc => {
+            histDocSelect.innerHTML += `<option value="${doc.id}">Dr. ${doc.name}</option>`;
+        });
+
+        const container = document.getElementById("doctors-container");
+        container.innerHTML = "";
+        
+        if(allDoctors.length === 0){
+            container.innerHTML = `<div class="empty" style="grid-column: 1/-1;">No doctors configured.</div>`;
+            return;
+        }
+
+        allDoctors.forEach(doc => {
+            fetch(`${API_BASE}/doctor/${doc.id}/queue`, { headers: { "Authorization": `Bearer ${authToken}` } })
+                .then(r => r.json())
+                .then(qData => {
+                    const isOnline = doc.is_online;
+                    const statusClass = isOnline ? "" : "off";
+                    const statusText = isOnline ? "ONLINE" : "OFFLINE";
+                    const currToken = (qData.current_token && qData.current_token.token_number) ? `#${qData.current_token.token_number}` : "—";
+                    const waiting = qData.waiting_count || 0;
+                    const completed = qData.completed_count || 0;
+
+                    container.innerHTML += `
+                    <article class="card doctor-card">
+                      <div class="doctor-top">
+                        <div class="doctor-info">
+                          <div class="doctor-avatar" style="width:45px;height:45px;border-radius:13px;background:#f1f5f9;display:grid;place-items:center;font-size:21px">👨‍⚕️</div>
+                          <div><div style="font-size:14px;font-weight:800;">Dr. ${doc.name}</div><div style="font-size:11px;color:var(--muted);margin-top:3px;">General Physician</div></div>
+                        </div>
+                        <div class="online ${statusClass}" id="doc-status-${doc.id}" style="font-size:10px;font-weight:800;color:var(--green);display:flex;gap:5px;align-items:center;"><i></i>${statusText}</div>
+                      </div>
+                      <div class="metrics" style="display:grid;grid-template-columns:repeat(3,1fr);margin:18px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border)">
+                        <div style="text-align:center;padding:12px 5px;"><b style="font-size:17px;color:var(--blue);">${currToken}</b><span style="display:block;font-size:9px;color:var(--muted);margin-top:3px;text-transform:uppercase;font-weight:700;">Current</span></div>
+                        <div style="text-align:center;padding:12px 5px;border-left:1px solid var(--border);"><b style="font-size:17px;">${waiting}</b><span style="display:block;font-size:9px;color:var(--muted);margin-top:3px;text-transform:uppercase;font-weight:700;">Waiting</span></div>
+                        <div style="text-align:center;padding:12px 5px;border-left:1px solid var(--border);"><b style="font-size:17px;">${completed}</b><span style="display:block;font-size:9px;color:var(--muted);margin-top:3px;text-transform:uppercase;font-weight:700;">Completed</span></div>
+                      </div>
+                      <div style="display:flex;gap:8px;align-items:center;justify-content:space-between;margin-top:10px;">
+                        <label class="switch" title="Doctor ON/OFF">
+                          <input type="checkbox" ${isOnline ? 'checked' : ''} onchange="toggleDoctorStatus(${doc.id}, this.checked, 'Dr. ${doc.name}')">
+                          <span class="slider"></span>
+                        </label>
+                        <button class="view-btn" onclick="selectDoctorQueue(${doc.id}, 'Dr. ${doc.name}')">👥 Manage Queue</button>
+                      </div>
+                    </article>
+                    `;
+                });
+        });
+    } catch (err) { console.error("Error loading doctors"); }
+}
+
+async function toggleDoctorStatus(docId, isOnline, name) {
+    try {
+        await fetch(`${API_BASE}/doctors/${docId}/status`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${authToken}` },
+            body: JSON.stringify({ is_online: isOnline })
+        });
+        showToast(`${name} is now ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
+        const el = document.getElementById(`doc-status-${docId}`);
+        if(el) {
+            el.className = `online ${isOnline ? '' : 'off'}`;
+            el.innerHTML = `<i></i>${isOnline ? 'ONLINE' : 'OFFLINE'}`;
+        }
+    } catch(e) { showToast("Error updating status", true); }
+}
+
+// --- ADD DOCTOR MODAL ---
+function openAddDoctorModal() { document.getElementById("add-doctor-modal").style.display = "flex"; }
+function closeAddDoctorModal() { document.getElementById("add-doctor-modal").style.display = "none"; document.getElementById("add-doctor-form").reset(); }
+
+document.getElementById("add-doctor-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const name = document.getElementById("doc-name").value;
+    const email = document.getElementById("doc-email").value;
+    const password = document.getElementById("doc-password").value;
+
+    try {
+        const res = await fetch(`${API_BASE}/doctors/add`, {
+            method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${authToken}` },
+            body: JSON.stringify({ name, email, password })
+        });
+        if(!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || "Failed to add doctor");
+        }
+        showToast("Doctor added successfully!");
+        closeAddDoctorModal();
+        loadDoctors();
+    } catch(err) { showToast(err.message, true); }
+});
+
+
+// --- QUEUE MANAGEMENT ---
+function selectDoctorQueue(docId, docName) {
+    selectedDoctorForQueue = { id: docId, name: docName };
+    switchTab('queue');
+}
+
+function renderQueueState() {
+    if(!selectedDoctorForQueue) {
+        document.getElementById("queue-content-wrapper").style.display = "none";
+        document.getElementById("queue-empty-state").style.display = "block";
+        return;
+    }
+    document.getElementById("queue-empty-state").style.display = "none";
+    document.getElementById("queue-content-wrapper").style.display = "block";
+    document.getElementById("queueDoctor").innerText = selectedDoctorForQueue.name;
+    document.getElementById("mainQueueSub").innerText = `Selected doctor: ${selectedDoctorForQueue.name}`;
+    document.getElementById("queue-profile-box").innerHTML = '<div class="empty">Select a patient from the queue table.</div>';
+    loadQueueData();
+}
+
+async function loadQueueData() {
+    if(!selectedDoctorForQueue) return;
+    try {
+        const res = await fetch(`${API_BASE}/doctor/${selectedDoctorForQueue.id}/queue`, { headers: { "Authorization": `Bearer ${authToken}` } });
+        const data = await res.json();
+        
+        const currNum = (data.current_token && data.current_token.token_number) ? `#${data.current_token.token_number}` : "—";
+        document.getElementById("queueSummary").innerText = `Current ${currNum} · ${data.waiting_count || 0} waiting patients`;
+
+        // LARGE CURRENT TOKEN BOX
+        const curBox = document.getElementById("current-token-box");
+        if(data.current_token) {
+            const ct = data.current_token;
+            curBox.innerHTML = `
+              <div style="font-size:72px; font-weight:900; color:var(--blue); line-height:1; margin:10px 0;">#${ct.token_number}</div>
+              <div style="font-size:22px; font-weight:800; color:var(--text); margin-bottom:5px; word-break:break-word;">${ct.patient_name}</div>
+              <div style="font-size:12px; color:var(--muted); display:flex; align-items:center; justify-content:center; gap:5px;"><span style="font-size:14px;">📱</span> ${ct.patient_phone || 'N/A'}</div>
+              <div style="margin-top:20px;"><span class="badge current" style="padding:6px 14px; font-size:11px;">● CURRENTLY SERVING</span></div>
+            `;
+        } else {
+            curBox.innerHTML = `
+              <div style="font-size:60px; font-weight:900; color:var(--muted); line-height:1; margin:10px 0;">#—</div>
+              <div style="font-size:18px; font-weight:700; color:var(--muted); margin-bottom:5px;">No active patient</div>
+              <div style="margin-top:20px;"><span class="badge completed" style="padding:6px 14px; font-size:11px;">NO ACTIVE TOKEN</span></div>
+            `;
+        }
+
+        // NEXT PATIENT
+        const nextContainer = document.getElementById("nextPatientCard");
+        if(data.next_patient) {
+            const np = data.next_patient;
+            nextContainer.innerHTML = `
+              <div class="next-patient-top">
+                <div>
+                  <div class="next-patient-label">Next Patient</div>
+                  <div class="next-patient-token">#${np.token_number}</div>
+                  <div class="next-patient-name">${np.patient_name}</div>
+                  <div class="next-patient-reason">🩺 ${np.visit_reason || '-'}</div>
+                </div>
+                <span class="badge waiting">● WAITING</span>
+              </div>
+              <div class="queue-actions">
+                <button class="action-btn accept-btn" onclick="queueAction(${np.id}, 'accept', 'Token #${np.token_number} accepted.')">✅ Accept</button>
+                <button class="action-btn skip-btn" onclick="queueAction(${np.id}, 'skip', 'Token #${np.token_number} skipped.')">⏭️ Skip</button>
+                <button class="action-btn cancel-btn" onclick="queueAction(${np.id}, 'cancel', 'Token #${np.token_number} cancelled.')">❌ Cancel</button>
+              </div>
+            `;
+        } else {
+            nextContainer.innerHTML = `<div class="next-patient-label">Next Patient</div><div class="empty" style="padding:15px 0;">No waiting patients in queue.</div>`;
+        }
+
+        // SKIPPED
+        const skipContainer = document.getElementById("skippedPatients");
+        skipContainer.innerHTML = "";
+        if(data.skipped_patients && data.skipped_patients.length > 0) {
+            skipContainer.innerHTML = data.skipped_patients.map(sp => `
+              <div class="skipped-patient">
+                <div class="skipped-info">
+                  <b>#${sp.token_number} · ${sp.patient_name}</b>
+                  <p>🩺 ${sp.visit_reason || '-'} · Temporarily Skipped</p>
+                </div>
+                <button class="recall-btn" onclick="queueAction(${sp.id}, 'recall', 'Token #${sp.token_number} recalled and accepted.')">↩️ Recall</button>
+              </div>
+            `).join("");
+        } else {
+            skipContainer.innerHTML = `<div class="empty" style="padding:10px 0;">No skipped patients.</div>`;
+        }
+
+        const todayStr = new Date().toISOString().split('T')[0];
+        const tRes = await fetch(`${API_BASE}/doctor/tokens?date_str=${todayStr}&status_filter=ALL`, { headers: { "Authorization": `Bearer ${authToken}` }});
+        currentQueueTokens = await tRes.json();
+        renderQueueTable();
+
+    } catch(e) { console.error("Error loading queue details"); }
+}
+
+function renderQueueTable() {
+    const tbody = document.getElementById("queue-table-body");
+    const search = document.getElementById("patientSearch").value.toLowerCase();
+    
+    let filtered = currentQueueTokens.filter(t => t.doctor_id === selectedDoctorForQueue.id);
+    if(search) {
+        filtered = filtered.filter(t => 
+            t.patient_name.toLowerCase().includes(search) || 
+            (t.patient_phone && t.patient_phone.includes(search)) || 
+            String(t.token_number).includes(search)
+        );
+    }
+
+    if(filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5"><div class="empty">No tokens found.</div></td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = filtered.map(t => `
+        <tr onclick='showQueuePatientProfile(${JSON.stringify(t).replace(/'/g, "&#39;")})'>
+            <td data-label="Token"><b>#${t.token_number}</b></td>
+            <td data-label="Patient"><b>${t.patient_name}</b></td>
+            <td data-label="Mobile">${t.patient_phone || 'N/A'}</td>
+            <td data-label="Reason">${t.visit_reason}</td>
+            <td data-label="Status">${getStatusBadge(t.status)}</td>
+        </tr>
+    `).join("");
+}
+
+document.getElementById("patientSearch").addEventListener("input", renderQueueTable);
+
+// --- QUEUE PATIENT PROFILE ---
+async function showQueuePatientProfile(t) {
+    const initials = t.patient_name.split(" ").map(x=>x[0]).slice(0,2).join("");
+    
+    document.getElementById("queue-profile-box").innerHTML = `
+      <div class="selected-patient-header">
+        <div class="sel-patient-avatar">${initials}</div>
+        <div>
+            <div class="sel-patient-name" style="word-break:break-word;">${t.patient_name}</div>
+            <div class="sel-patient-sub">Token #${t.token_number} · ${t.doctor_name}</div>
+        </div>
+      </div>
+      
+      <div class="patient-stats-grid" style="grid-template-columns:1fr 1fr; margin-bottom:15px;">
+         <div class="p-stat-item"><b>${t.patient_phone || 'N/A'}</b><span>Mobile</span></div>
+         <div class="p-stat-item"><b>${t.patient_age || '-'}</b><span>Age</span></div>
+         <div class="p-stat-item"><b>${t.patient_gender || '-'}</b><span>Gender</span></div>
+         <div class="p-stat-item"><b id="p-prof-tot-visits">...</b><span>Total Visits</span></div>
+      </div>
+      
+      <div class="section-head" style="margin-bottom:10px; margin-top:20px; border-bottom:1px solid var(--border); padding-bottom:8px;">
+        <h2 style="font-size:12px;">Visit History</h2>
+      </div>
+      
+      <div style="font-size:11px;">
+        <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border);">
+            <span style="color:var(--muted); width:80px;" id="p-prof-first-date">...</span>
+            <span style="flex:1;">First recorded visit</span>
+            <strong style="color:var(--muted);">✓</strong>
+        </div>
+        <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border);">
+            <span style="color:var(--blue); font-weight:700; width:80px;">${t.visit_date}</span>
+            <span style="flex:1; font-weight:500;">${t.visit_reason}</span>
+            <strong style="color:var(--text);">#${t.token_number}</strong>
+        </div>
+      </div>
+    `;
+
+    try {
+        const res = await fetch(`${API_BASE}/doctor/patients/${t.patient_id}/history`, { headers: { "Authorization": `Bearer ${authToken}` }});
+        if(res.ok) {
+            const history = await res.json();
+            const totalVisits = history.length;
+            const firstVisit = totalVisits > 0 ? history[history.length - 1].visit_date : '-';
+            
+            document.getElementById("p-prof-tot-visits").innerText = totalVisits;
+            document.getElementById("p-prof-first-date").innerText = firstVisit;
+        } else {
+            document.getElementById("p-prof-tot-visits").innerText = "Error";
+            document.getElementById("p-prof-first-date").innerText = "-";
+        }
+    } catch(e) {
+        document.getElementById("p-prof-tot-visits").innerText = "Error";
+        document.getElementById("p-prof-first-date").innerText = "-";
+    }
+}
+
+async function queueAction(visitId, action, successMessage) {
+    if(action === 'cancel' && !confirm("Are you sure you want to cancel this token?")) return;
+    
+    try {
+        const res = await fetch(`${API_BASE}/visit/${visitId}/${action}`, {
+            method: "POST", headers: { "Authorization": `Bearer ${authToken}` }
+        });
+        if(res.ok) {
+            showToast(successMessage);
+            loadQueueData();
+            loadDashboardSummary(); 
+        } else { 
+            const err = await res.json();
+            showToast(err.detail || "Failed to process action", true); 
+        }
+    } catch(e) { showToast("Network Error during action", true); }
+}
+
+// --- PATIENTS TAB ---
+function handlePatientDateFilter() {
+    const filter = document.getElementById("patient-date-filter").value;
+    const start = document.getElementById("patient-start-date");
+    const end = document.getElementById("patient-end-date");
+    
+    if (filter === "CUSTOM") {
+        start.style.display = "block"; end.style.display = "block";
+    } else {
+        start.style.display = "none"; end.style.display = "none";
+        const today = new Date();
+        if (filter === "TODAY") { start.valueAsDate = today; end.valueAsDate = today; } 
+        else if (filter === "WEEK") {
+            const fd = new Date(today.setDate(today.getDate() - today.getDay()));
+            start.valueAsDate = fd; end.valueAsDate = new Date();
+        } else if (filter === "MONTH") {
+            start.valueAsDate = new Date(today.getFullYear(), today.getMonth(), 1); end.valueAsDate = new Date();
+        } else if (filter === "ALL") {
+            start.value = ""; end.value = "";
+        }
+    }
+    searchPatients();
+}
+
+async function searchPatients() {
+    const q = document.getElementById("patient-search").value;
+    const start = document.getElementById("patient-start-date").value;
+    const end = document.getElementById("patient-end-date").value;
+
+    try {
+        const sumRes = await fetch(`${API_BASE}/doctor/patients-summary?query=${encodeURIComponent(q)}&start_date=${start}&end_date=${end}`, { headers: { "Authorization": `Bearer ${authToken}` }});
+        if(sumRes.ok) {
+            const s = await sumRes.json();
+            document.getElementById("sum-tot-patients").innerText = s.total_patients;
+            document.getElementById("sum-new-patients").innerText = s.new_patients;
+            document.getElementById("sum-ret-patients").innerText = s.returning_patients;
+            document.getElementById("sum-tot-visits").innerText = s.total_visits;
+        }
+        
+        const res = await fetch(`${API_BASE}/doctor/patients?query=${encodeURIComponent(q)}&start_date=${start}&end_date=${end}`, { headers: { "Authorization": `Bearer ${authToken}` }});
+        currentPatientsList = await res.json();
+        const tbody = document.getElementById("patients-table-body");
+        tbody.innerHTML = "";
+
+        if(currentPatientsList.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6"><div class="empty">No patients found.</div></td></tr>`;
+            return;
+        }
+
+        currentPatientsList.forEach(p => {
+            tbody.innerHTML += `
+                <tr onclick="viewPatientHistoryModal(${p.id})">
+                    <td data-label="Patient Name"><b>${p.name}</b></td>
+                    <td data-label="Mobile">${p.whatsapp_number}</td>
+                    <td data-label="Age/Gender">${p.age} · ${p.gender}</td>
+                    <td data-label="Total Visits"><b>${p.visit_count}</b></td>
+                    <td data-label="First Visit">${p.first_visit_date || '-'}</td>
+                    <td data-label="Last Visit">${p.last_visit_date || '-'}</td>
+                </tr>
+            `;
+        });
+    } catch (err) { showToast("Failed to fetch patients", true); }
+}
+
+async function viewPatientHistoryModal(patientId) {
+    const p = currentPatientsList.find(x => x.id === patientId);
+    if (!p) return;
+
+    try {
+        const res = await fetch(`${API_BASE}/doctor/patients/${patientId}/history`, { headers: { "Authorization": `Bearer ${authToken}` }});
+        const history = await res.json();
+        const initials = p.name.split(" ").map(x=>x[0]).slice(0,2).join("");
+
+        document.getElementById("modal-patient-info").innerHTML = `
+            <div class="selected-patient-header" style="border-bottom:none; padding-bottom:0; margin-bottom:0;">
+                <div class="sel-patient-avatar" style="width:52px;height:52px;font-size:18px;">${initials}</div>
+                <div>
+                    <div class="sel-patient-name" style="font-size:17px;">${p.name}</div>
+                    <div class="sel-patient-sub" style="font-size:12px;">📱 ${p.whatsapp_number} &nbsp;·&nbsp; 🎂 ${p.age} yrs &nbsp;·&nbsp; ⚥ ${p.gender}</div>
+                </div>
+            </div>
+            <div class="patient-stats-grid" style="grid-template-columns:1fr 1fr; margin-top:16px; background:#f8fafc; padding:15px; border-radius:12px; margin-bottom:0;">
+               <div class="p-stat-item"><b>${p.visit_count}</b><span>Total Visits</span></div>
+               <div class="p-stat-item"><b>${p.first_visit_date || '-'}</b><span>First Visit</span></div>
+            </div>
+        `;
+
+        const timeline = document.getElementById("modal-timeline-body");
+        timeline.innerHTML = "";
+        if(history.length === 0) timeline.innerHTML = `<div class="empty">No visits recorded in database.</div>`;
+        else {
+            history.forEach(v => {
+                let timeStr = new Date(v.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                timeline.innerHTML += `
+                    <div style="display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);font-size:11px;align-items:center;">
+                        <div style="width:70px;"><span style="color:var(--blue);font-weight:700;white-space:nowrap;">${v.visit_date}</span><div style="font-size:9px;color:var(--muted);">${timeStr}</div></div>
+                        <div style="flex:1;">
+                            <strong style="display:block;font-size:12px;margin-bottom:2px;color:var(--text);">${v.visit_reason}</strong>
+                            <span style="color:var(--muted);">Dr. ${v.doctor_name || 'N/A'}</span>
+                        </div>
+                        <div style="text-align:right;">
+                            <b style="display:block;font-size:12px;margin-bottom:4px;">#${v.token_number}</b>
+                            ${getStatusBadge(v.status)}
+                        </div>
+                    </div>
+                `;
+            });
+        }
+        document.getElementById("patient-modal").style.display = "flex";
+    } catch (err) { showToast("Error loading patient history", true); }
+}
+function closeModal() { document.getElementById("patient-modal").style.display = "none"; }
+
+// --- HISTORY TAB ---
+async function loadTokenHistory() {
+    const dateStr = document.getElementById("history-date").value;
+    const statusFilter = document.getElementById("history-filter").value;
+    const docFilter = document.getElementById("history-doctor").value;
+
+    try {
+        const res = await fetch(`${API_BASE}/doctor/tokens?date_str=${dateStr}&status_filter=${statusFilter}`, { headers: { "Authorization": `Bearer ${authToken}` }});
+        let tokens = await res.json();
+        
+        if (docFilter !== "ALL") {
+            tokens = tokens.filter(t => t.doctor_id == docFilter);
+        }
+
+        const tbody = document.getElementById("history-table-body");
+        tbody.innerHTML = "";
+        
+        if(tokens.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5"><div class="empty">No tokens found.</div></td></tr>`;
+            return;
+        }
+        tokens.forEach(t => {
+            tbody.innerHTML += `
+                <tr>
+                    <td data-label="Token"><strong class="text-blue" style="font-size: 13px;">#${t.token_number}</strong></td>
+                    <td data-label="Patient"><b>${t.patient_name}</b></td>
+                    <td data-label="Doctor">Dr. ${t.doctor_name || 'N/A'}</td>
+                    <td data-label="Reason">${t.visit_reason}</td>
+                    <td data-label="Status">${getStatusBadge(t.status)}</td>
+                </tr>
+            `;
+        });
+    } catch (err) { showToast("Error loading tokens history", true); }
+}
+
+// --- WALK-IN MODAL ---
+function openWalkinModal() {
+    const docSelect = document.getElementById("walkin-doctor");
+    docSelect.innerHTML = "<option value=''>-- Select Doctor --</option>";
+    let onlineDocs = allDoctors.filter(d => d.is_online);
+    onlineDocs.forEach(d => { docSelect.innerHTML += `<option value="${d.id}">Dr. ${d.name}</option>`; });
+    
+    if(onlineDocs.length === 0) {
+        showToast("No doctors are online to accept walk-ins.", true);
+        return;
+    }
+    if(selectedDoctorForQueue && onlineDocs.find(d => d.id === selectedDoctorForQueue.id)) {
+        docSelect.value = selectedDoctorForQueue.id;
+    }
+    document.getElementById("walkin-modal").style.display = "flex";
+}
+
+function closeWalkinModal() {
+    document.getElementById("walkin-modal").style.display = "none";
+    document.getElementById("walkin-form").reset();
+}
+
+document.getElementById("walkin-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const payload = {
+        doctor_id: parseInt(document.getElementById("walkin-doctor").value),
+        whatsapp_number: document.getElementById("walkin-phone").value,
+        phone_number: document.getElementById("walkin-phone").value,
+        name: document.getElementById("walkin-name").value,
+        age: parseInt(document.getElementById("walkin-age").value),
+        gender: document.getElementById("walkin-gender").value,
+        visit_reason: document.getElementById("walkin-reason").value
+    };
+    try {
+        const res = await fetch(`${API_BASE}/doctor/add-walkin`, {
+            method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${authToken}` },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Error generating token");
+        
+        showToast(`Token #${data.token_number} Generated Successfully!`);
+        closeWalkinModal();
+        loadDashboardSummary();
+        if(selectedDoctorForQueue && selectedDoctorForQueue.id === payload.doctor_id) loadQueueData();
+    } catch (err) { showToast(err.message, true); }
+});
+
+// --- REMINDERS LOGIC ---
+function loadReminderSettings() {
+    const settings = JSON.parse(localStorage.getItem("reminderSettings")) || {
+        global: true,
+        nearTurn: true,
+        patientsAhead: "2",
+        yourTurn: true
+    };
+    document.getElementById("rem-global-toggle").checked = settings.global;
+    document.getElementById("rem-near-turn").checked = settings.nearTurn;
+    document.getElementById("rem-patients-ahead").value = settings.patientsAhead;
+    document.getElementById("rem-your-turn").checked = settings.yourTurn;
+}
+
+function saveReminderSettings() {
+    const settings = {
+        global: document.getElementById("rem-global-toggle").checked,
+        nearTurn: document.getElementById("rem-near-turn").checked,
+        patientsAhead: document.getElementById("rem-patients-ahead").value,
+        yourTurn: document.getElementById("rem-your-turn").checked
+    };
+    localStorage.setItem("reminderSettings", JSON.stringify(settings));
+    showToast("Reminder settings saved successfully");
+}
+
+// INIT
+if (authToken) initDashboard();
+</script>
+</body>
+</html>
