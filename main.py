@@ -26,7 +26,7 @@ from security import verify_password, create_access_token, get_password_hash
 from whatsapp import process_whatsapp_message, get_today_ist, generate_daily_token
 
 # ==========================================
-# 1. ADMIN SYSTEM MODEL (Strictly Separate from Doctors)
+# 1. ADMIN SYSTEM MODEL
 # ==========================================
 class AdminSystem(Base):
     __tablename__ = "system_admins"
@@ -39,6 +39,7 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="WhatsApp Clinic Token System API", version="1.0.0")
 
+# CORS config to allow same-origin requests seamlessly
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -131,35 +132,31 @@ def setup_database_and_admin():
         db.close()
 
 # ==========================================
-# 5. ROOT & HEALTH ENDPOINTS (Fixed 404 Issue)
+# 5. FRONTEND & HEALTH ENDPOINTS (Fixed Root)
 # ==========================================
-@app.get("/")
-def root():
-    return {"status": "Online"}
+@app.get("/", response_class=HTMLResponse)
+@app.get("/dashboard", response_class=HTMLResponse)
+def serve_frontend():
+    """Serves the index.html directly from the root URL"""
+    if os.path.exists("index.html"):
+        return FileResponse("index.html")
+    return HTMLResponse(content="<h1>Frontend UI missing (index.html not found)</h1>", status_code=404)
 
 @app.get("/health")
 def health_check():
+    """System health check endpoint"""
     return {"status": "healthy"}
-
-@app.get("/dashboard", response_class=HTMLResponse)
-def serve_dashboard():
-    # Keep the frontend accessible
-    if os.path.exists("index.html"):
-        return FileResponse("index.html")
-    return HTMLResponse(content="<h1>Dashboard UI missing (index.html not found)</h1>", status_code=404)
 
 # ==========================================
 # 6. AUTHENTICATION ENDPOINTS
 # ==========================================
 @app.post("/auth/login", response_model=TokenSchema)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    # 1. Admin Login Check
     admin = db.query(AdminSystem).filter(AdminSystem.username == form_data.username).first()
     if admin and verify_password(form_data.password, admin.password_hash):
         access_token = create_access_token(data={"sub": admin.username, "role": "admin"})
         return {"access_token": access_token, "token_type": "bearer"}
 
-    # 2. Real Doctor Login Check (Future-proofing for doctor apps)
     doctor = db.query(Doctor).filter(Doctor.email == form_data.username, Doctor.is_active == True).first()
     if doctor and verify_password(form_data.password, doctor.password_hash):
         access_token = create_access_token(data={"sub": doctor.email, "role": "doctor"})
@@ -188,7 +185,6 @@ def add_doctor(payload: DoctorCreateSchema, db: Session = Depends(get_db), curre
     email = payload.email.strip().lower()
     password = payload.password
     
-    # Validations
     if not name:
         raise HTTPException(status_code=400, detail="Doctor name is required.")
     
@@ -199,7 +195,6 @@ def add_doctor(payload: DoctorCreateSchema, db: Session = Depends(get_db), curre
     if len(password) < 6:
         raise HTTPException(status_code=400, detail="Password must be at least 6 characters.")
 
-    # Check Email Duplication
     existing_doc = db.query(Doctor).filter(func.lower(Doctor.email) == email).first()
     if existing_doc:
         raise HTTPException(status_code=409, detail="A doctor with this email already exists.")
@@ -208,7 +203,6 @@ def add_doctor(payload: DoctorCreateSchema, db: Session = Depends(get_db), curre
     if existing_admin:
         raise HTTPException(status_code=409, detail="This email is reserved for system administrators.")
 
-    # Create Real Doctor Record
     new_doc = Doctor(
         clinic_id=current_admin.clinic_id,
         name=name,
@@ -245,7 +239,6 @@ def add_doctor(payload: DoctorCreateSchema, db: Session = Depends(get_db), curre
 def get_all_doctors(db: Session = Depends(get_db), current_admin: AdminSystem = Depends(get_current_admin)):
     admin_email = os.getenv("ADMIN_USERNAME", "admin")
     
-    # Strictly exclude deactivated doctors and the admin email
     doctors = db.query(Doctor).filter(
         Doctor.clinic_id == current_admin.clinic_id, 
         Doctor.is_active == True,
@@ -316,7 +309,6 @@ def next_patient(doctor_id: int, db: Session = Depends(get_db), current_admin: A
     db.commit()
     return {"message": "No waiting patients remaining"}
 
-# (Fallback Endpoint to strictly satisfy old frontend requests if they hit the base URL)
 @app.post("/doctor/next-patient")
 def next_patient_fallback(payload: dict = None, db: Session = Depends(get_db), current_admin: AdminSystem = Depends(get_current_admin)):
     doctor_id = payload.get("doctor_id") if payload else None
