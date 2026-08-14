@@ -92,6 +92,8 @@ button{cursor:pointer;}
 .doctor-actions{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-top:10px;}
 .view-btn{flex:1;border-radius:9px;padding:10px;border:0;font-size:12px;font-weight:750;background:#eff6ff;color:var(--blue);transition:0.2s;}
 .view-btn:hover{background:#dbeafe;}
+.del-icon-btn { color:var(--red); border:1px solid #fee2e2; background:#fef2f2; border-radius:9px; padding:9px 12px; font-size:12px; transition:0.2s; display:flex; align-items:center; justify-content:center; }
+.del-icon-btn:hover { background:#fee2e2; }
 
 /* Queue Layout */
 .queue-layout{display:grid;grid-template-columns:1.55fr .9fr;gap:15px;min-width:0;}
@@ -162,10 +164,6 @@ tbody tr:hover{background:#f8fafc;cursor:pointer;}
 .close-btn:hover{background:#f1f5f9;color:var(--text);}
 .modal-body{padding:24px;overflow-y:auto;}
 .modal-footer{padding:20px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px;background:#f8fafc;border-radius:0 0 var(--radius) var(--radius);}
-
-/* Delete Icon Buttons */
-.del-icon-btn { color:var(--red); border:1px solid #fee2e2; background:#fef2f2; border-radius:9px; padding:9px 12px; font-size:12px; transition:0.2s; display:flex; align-items:center; justify-content:center; }
-.del-icon-btn:hover { background:#fee2e2; }
 
 /* --- MOBILE RESPONSIVE OPTIMIZATION --- */
 .hide-mobile { display: inline-block; }
@@ -267,6 +265,7 @@ tbody tr:hover{background:#f8fafc;cursor:pointer;}
         <button onclick="switchTab('queue')"><span class="icon" style="font-size:18px;">🎫</span> <span class="nav-text">Queue</span></button>
         <button onclick="switchTab('patients')"><span class="icon" style="font-size:18px;">♙</span> <span class="nav-text">Patients</span></button>
         <button onclick="switchTab('history')"><span class="icon" style="font-size:18px;">📋</span> <span class="nav-text">History</span></button>
+        <!-- NEW REMINDERS SIDEBAR ITEM -->
         <button onclick="switchTab('reminders')"><span class="icon" style="font-size:18px;">🔔</span> <span class="nav-text">Reminders</span></button>
       </nav>
       <div class="sidebar-bottom"><button class="logout" onclick="logout()">↪ Logout</button></div>
@@ -452,7 +451,7 @@ tbody tr:hover{background:#f8fafc;cursor:pointer;}
           </div>
         </div>
 
-        <!-- REMINDERS TAB -->
+        <!-- NEW REMINDERS TAB -->
         <div id="tab-reminders" class="tab-content">
           <div class="page-head">
             <div><h1>🔔 Token Reminders</h1><p>Configure automatic WhatsApp token alerts</p></div>
@@ -600,7 +599,7 @@ tbody tr:hover{background:#f8fafc;cursor:pointer;}
   </div>
 </div>
 
-<!-- NEW: Delete Doctor Modal -->
+<!-- Delete Doctor Modal -->
 <div class="modal-overlay" id="delete-doctor-modal">
   <div class="modal">
     <div class="modal-header">
@@ -619,7 +618,7 @@ tbody tr:hover{background:#f8fafc;cursor:pointer;}
   </div>
 </div>
 
-<!-- NEW: Delete Patient Modal -->
+<!-- Delete Patient Modal -->
 <div class="modal-overlay" id="delete-patient-modal">
   <div class="modal">
     <div class="modal-header">
@@ -1377,29 +1376,39 @@ function closeModal(id) {
     }
 }
 
-// --- REMINDERS LOGIC ---
-function loadReminderSettings() {
-    const settings = JSON.parse(localStorage.getItem("reminderSettings")) || {
-        global: true,
-        nearTurn: true,
-        patientsAhead: "2",
-        yourTurn: true
-    };
-    document.getElementById("rem-global-toggle").checked = settings.global;
-    document.getElementById("rem-near-turn").checked = settings.nearTurn;
-    document.getElementById("rem-patients-ahead").value = settings.patientsAhead;
-    document.getElementById("rem-your-turn").checked = settings.yourTurn;
+// --- REMINDERS LOGIC (NEW) ---
+async function loadReminderSettings() {
+    try {
+        const res = await fetch(`${API_BASE}/reminders/settings`, { headers: { "Authorization": `Bearer ${authToken}` } });
+        if(res.ok) {
+            const data = await res.json();
+            document.getElementById("rem-global-toggle").checked = data.enabled;
+            document.getElementById("rem-near-turn").checked = data.near_turn_enabled;
+            document.getElementById("rem-patients-ahead").value = data.near_turn_patients;
+            document.getElementById("rem-your-turn").checked = data.your_turn_enabled;
+        }
+    } catch(e) { console.error("Could not load reminder settings"); }
 }
 
-function saveReminderSettings() {
-    const settings = {
-        global: document.getElementById("rem-global-toggle").checked,
-        nearTurn: document.getElementById("rem-near-turn").checked,
-        patientsAhead: document.getElementById("rem-patients-ahead").value,
-        yourTurn: document.getElementById("rem-your-turn").checked
+async function saveReminderSettings() {
+    const payload = {
+        enabled: document.getElementById("rem-global-toggle").checked,
+        near_turn_enabled: document.getElementById("rem-near-turn").checked,
+        near_turn_patients: parseInt(document.getElementById("rem-patients-ahead").value),
+        your_turn_enabled: document.getElementById("rem-your-turn").checked
     };
-    localStorage.setItem("reminderSettings", JSON.stringify(settings));
-    showToast("Reminder settings saved successfully");
+    try {
+        const res = await fetch(`${API_BASE}/reminders/settings`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${authToken}` },
+            body: JSON.stringify(payload)
+        });
+        if(res.ok) {
+            showToast("Reminder settings saved successfully");
+        } else {
+            showToast("Failed to save settings", true);
+        }
+    } catch(e) { showToast("Network Error", true); }
 }
 
 // INIT
